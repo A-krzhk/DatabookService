@@ -1,15 +1,16 @@
-
-using DatabookService.Application.Commands;
+using ContentService.Web.EndpointsSettings;
+using DatabookService.Application.Features.DatabookTypes;
 using DatabookService.Application.Interfaces;
-using DatabookService.Application.Queries;
 using DatabookService.Application.Services;
 using DatabookService.Infrastructure.Data;
 using DatabookService.Infrastructure.Repositories;
-using DatabookService.Web.EndpointSettings;
 using DatabookService.Web.Middleware;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddEndpoints(typeof(Program).Assembly);
+builder.Services.AddDirectoryTypesFeature();
 
 // Add services to the container
 builder.Services.AddEndpointsApiExplorer();
@@ -25,10 +26,6 @@ builder.Services.AddScoped<IDirectoryTypeRepository, DirectoryTypeRepository>();
 // Services
 builder.Services.AddScoped<IDynamicTableService, DynamicTableService>(sp =>
     new DynamicTableService(sp.GetRequiredService<ApplicationDbContext>()));
-
-// Commands and Queries
-builder.Services.AddScoped<CreateDirectoryTypeCommand>();
-builder.Services.AddScoped<GetAllDirectoryTypesQuery>();
 
 // CORS
 builder.Services.AddCors(options =>
@@ -54,7 +51,6 @@ app.UseMiddleware<ErrorHandlingMiddleware>();
 
 app.UseCors("AllowAll");
 
-// Map endpoints
-app.MapDirectoryTypeEndpoints();
+app.MapDirectoryTypesFeature();
 
 app.Run();

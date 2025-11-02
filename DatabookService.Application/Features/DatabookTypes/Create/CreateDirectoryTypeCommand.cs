@@ -3,7 +3,7 @@ using DatabookService.Application.Interfaces;
 using DatabookService.Domain.Entities;
 using DatabookService.Domain.Enums;
 
-namespace DatabookService.Application.Commands;
+namespace DatabookService.Application.Features.DatabookTypes.Create;
 
 public class CreateDirectoryTypeCommand
 {

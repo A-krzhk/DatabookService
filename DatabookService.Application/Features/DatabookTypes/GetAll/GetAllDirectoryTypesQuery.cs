@@ -1,7 +1,7 @@
 using DatabookService.Application.DTOs;
 using DatabookService.Application.Interfaces;
 
-namespace DatabookService.Application.Queries;
+namespace DatabookService.Application.Features.DatabookTypes.GetAll;
 
 public class GetAllDirectoryTypesQuery
 {
