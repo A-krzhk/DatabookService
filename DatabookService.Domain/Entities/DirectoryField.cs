@@ -1,0 +1,49 @@
+using DatabookService.Domain.Enums;
+
+namespace DatabookService.Domain.Entities;
+
+
+public class DirectoryField
+{
+    public Guid Id { get; private set; }
+    public Guid DirectoryTypeId { get; private set; }
+    public string Name { get; private set; }
+    public string ColumnName { get; private set; }
+    public FieldDataType DataType { get; private set; }
+    public bool IsRequired { get; private set; }
+    public Guid? ReferenceDirectoryTypeId { get; private set; }
+    public int Order { get; private set; }
+    
+    public DirectoryType DirectoryType { get; private set; } = null!;
+    public DirectoryType? ReferenceDirectoryType { get; private set; }
+
+    private DirectoryField() { } // EF Core
+
+    public DirectoryField(
+        Guid directoryTypeId,
+        string name,
+        string columnName,
+        FieldDataType dataType,
+        bool isRequired,
+        int order,
+        Guid? referenceDirectoryTypeId = null)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            throw new ArgumentException("Name cannot be empty", nameof(name));
+        
+        if (string.IsNullOrWhiteSpace(columnName))
+            throw new ArgumentException("Column name cannot be empty", nameof(columnName));
+        
+        if (dataType == FieldDataType.Reference && !referenceDirectoryTypeId.HasValue)
+            throw new ArgumentException("Reference directory type must be specified for Reference data type");
+
+        Id = Guid.NewGuid();
+        DirectoryTypeId = directoryTypeId;
+        Name = name;
+        ColumnName = columnName;
+        DataType = dataType;
+        IsRequired = isRequired;
+        Order = order;
+        ReferenceDirectoryTypeId = referenceDirectoryTypeId;
+    }
+}
