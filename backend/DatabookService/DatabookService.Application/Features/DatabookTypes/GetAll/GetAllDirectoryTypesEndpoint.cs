@@ -11,7 +11,8 @@ public class GetAllDirectoryTypesEndpoint : IEndpoint
     public void MapEndpoint(WebApplication app)
     {
         var group = app.MapGroup("/api/directory-types")
-            .WithTags("Directory Types");
+            .WithTags("Directory Types")
+            .RequireAuthorization("Contributor");
 
         group.MapGet("/", GetAllDirectoryTypes)
             .WithName("GetAllDirectoryTypes")

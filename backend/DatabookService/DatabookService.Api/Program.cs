@@ -1,7 +1,9 @@
 using System.Globalization;
 using DatabookService.Application.Features.DatabookTypes;
+using DatabookService.Application.Features.ApiKeys;
 using DatabookService.Application.Interfaces;
 using DatabookService.Infrastructure.Data;
+using DatabookService.Infrastructure.Authentication;
 using DatabookService.Infrastructure.Repositories;
 using DatabookService.Infrastructure.Services;
 using DatabookService.Web.EndpointsSettings;
@@ -21,10 +23,31 @@ try
 
     builder.Services.AddEndpoints(typeof(Program).Assembly);
     builder.Services.AddDirectoryTypesFeature();
+    builder.Services.AddApiKeysFeature();
 
     // Add services to the container
     builder.Services.AddEndpointsApiExplorer();
-    builder.Services.AddSwaggerGen();
+    builder.Services.AddSwaggerGen(c =>
+    {
+        var scheme = new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+        {
+            Name = "X-API-Key",
+            Type = Microsoft.OpenApi.Models.SecuritySchemeType.ApiKey,
+            In = Microsoft.OpenApi.Models.ParameterLocation.Header,
+            Reference = new Microsoft.OpenApi.Models.OpenApiReference
+            {
+                Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
+                Id = "ApiKey"
+            },
+            Scheme = "ApiKey",
+            Description = "Provide API key via X-API-Key header or Authorization: ApiKey <key>"
+        };
+        c.AddSecurityDefinition("ApiKey", scheme);
+        c.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
+        {
+            [scheme] = new List<string>()
+        });
+    });
     
     builder.Services.AddSerilog((sp, lc) => lc
             .ReadFrom.Configuration(builder.Configuration)
@@ -42,10 +65,37 @@ try
 
     // Repositories
     builder.Services.AddScoped<IDirectoryTypeRepository, DirectoryTypeRepository>();
+    builder.Services.AddScoped<DatabookService.Application.Interfaces.Repositories.IApiKeyRepository, ApiKeyRepository>();
 
     // Services
     builder.Services.AddScoped<IDynamicTableService, DynamicTableService>(sp =>
         new DynamicTableService(sp.GetRequiredService<ApplicationDbContext>()));
+
+    // Security services
+    builder.Services.AddSingleton<DatabookService.Application.Interfaces.Security.IApiKeyHasher, DatabookService.Infrastructure.Security.ApiKeyHasherPbkdf2>();
+    builder.Services.AddSingleton<DatabookService.Application.Interfaces.Security.IApiKeyGenerator, DatabookService.Infrastructure.Security.ApiKeyGenerator>();
+
+    // Auth
+    builder.Services
+        .AddAuthentication(options =>
+        {
+            options.DefaultAuthenticateScheme = ApiKeyAuthenticationHandler.Scheme;
+            options.DefaultChallengeScheme = ApiKeyAuthenticationHandler.Scheme;
+        })
+        .AddScheme<ApiKeyAuthenticationOptions, ApiKeyAuthenticationHandler>(
+            ApiKeyAuthenticationHandler.Scheme,
+            _ => { });
+
+    builder.Services.Configure<ApiKeyAuthenticationOptions>(builder.Configuration.GetSection("ApiKeyAuth"));
+
+    builder.Services.AddAuthorization(options =>
+    {
+        options.AddPolicy("AdminOnly", policy =>
+            policy.RequireAuthenticatedUser().RequireRole("Admin"));
+
+        options.AddPolicy("Contributor", policy =>
+            policy.RequireAuthenticatedUser().RequireRole("Admin", "User"));
+    });
 
     // CORS
     builder.Services.AddCors(options =>
@@ -68,6 +118,22 @@ try
         try
         {
             dbContext.Database.Migrate();
+
+            // Dev seed: create initial admin key if none exists
+            if (app.Environment.IsDevelopment())
+            {
+                if (!dbContext.ApiKeys.Any())
+                {
+                    var generator = scope.ServiceProvider.GetRequiredService<DatabookService.Application.Interfaces.Security.IApiKeyGenerator>();
+                    var hasher = scope.ServiceProvider.GetRequiredService<DatabookService.Application.Interfaces.Security.IApiKeyHasher>();
+                    var plain = generator.Generate();
+                    var hash = hasher.Hash(plain);
+                    dbContext.ApiKeys.Add(new DatabookService.Domain.Entities.ApiKey("Dev Admin", hash, DatabookService.Domain.Enums.ApiKeyRole.Admin, null));
+                    await dbContext.SaveChangesAsync();
+                    var seedLogger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+                    seedLogger.LogWarning("Seeded DEV admin API key (showing once): {ApiKey}", plain);
+                }
+            }
         }
         catch (Exception ex)
         {
@@ -85,9 +151,13 @@ try
 
     app.UseMiddleware<ErrorHandlingMiddleware>();
 
+    app.UseAuthentication();
+    app.UseAuthorization();
+
     app.UseCors("AllowFrontend");
 
     app.MapDirectoryTypesFeature();
+    app.MapApiKeysFeature();
 
     app.Run();
 

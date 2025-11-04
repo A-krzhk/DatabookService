@@ -34,12 +34,7 @@ public class DynamicTableService : IDynamicTableService
         sb.AppendLine($"CREATE TABLE \"{directoryType.TableName}\" (");
         sb.AppendLine("    \"Id\" UUID PRIMARY KEY DEFAULT gen_random_uuid(),");
 
-        foreach (var field in directoryType.Fields.OrderBy(f => f.Order))
-        {
-            var columnDefinition = GetColumnDefinition(field);
-            sb.AppendLine($"    \"{field.ColumnName}\" {columnDefinition},");
-        }
-
+        // Только поля, которые НЕ являются коллекциями — они идут в основной таблице
         foreach (var field in directoryType.Fields
                      .Where(f => !f.IsCollection)
                      .OrderBy(f => f.Order))
@@ -110,9 +105,9 @@ public class DynamicTableService : IDynamicTableService
             }
         }
 
-
         return sb.ToString();
     }
+
 
     private string GetColumnDefinition(DirectoryField field)
     {
