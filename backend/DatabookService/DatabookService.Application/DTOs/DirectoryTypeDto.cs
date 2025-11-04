@@ -16,6 +16,7 @@ public record DirectoryFieldDto(
     int DataType,
     bool IsRequired,
     int Order,
+    bool IsCollection,
     Guid? ReferenceDirectoryTypeId,
     string? ReferenceDirectoryTypeName
 );

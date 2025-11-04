@@ -13,5 +13,6 @@ public record CreateDirectoryFieldDto(
     int DataType,
     bool IsRequired,
     int Order,
+    bool IsCollection,
     Guid? ReferenceDirectoryTypeId
 );

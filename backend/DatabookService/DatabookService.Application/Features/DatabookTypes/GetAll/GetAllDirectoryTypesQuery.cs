@@ -29,6 +29,7 @@ public class GetAllDirectoryTypesQuery
                 (int)f.DataType,
                 f.IsRequired,
                 f.Order,
+                f.IsCollection,
                 f.ReferenceDirectoryTypeId,
                 f.ReferenceDirectoryType?.Name
             )).ToList()

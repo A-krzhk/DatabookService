@@ -60,6 +60,7 @@ public class CreateDirectoryTypeCommand
                 (FieldDataType)fieldDto.DataType,
                 fieldDto.IsRequired,
                 fieldDto.Order,
+                fieldDto.IsCollection,
                 fieldDto.ReferenceDirectoryTypeId
             );
 
@@ -91,6 +92,7 @@ public class CreateDirectoryTypeCommand
                 (int)f.DataType,
                 f.IsRequired,
                 f.Order,
+                f.IsCollection,
                 f.ReferenceDirectoryTypeId,
                 f.ReferenceDirectoryType?.Name
             )).ToList()
