@@ -1,0 +1,76 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: databook-postgres
+    environment:
+      POSTGRES_DB: DatabookService
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - databook-network
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend/DatabookService
+      dockerfile: DatabookService.Api/Dockerfile
+    container_name: databook-backend
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:5000
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=DatabookService;Username=postgres;Password=postgres
+    ports:
+      - "5000:5000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - databook-network
+    restart: unless-stopped
+
+  # Frontend
+  frontend:
+    build:
+      context: ./frontend/DatabookService
+      dockerfile: Dockerfile
+    container_name: databook-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - databook-network
+    restart: unless-stopped
+
+  # Logger — Seq
+  seq:
+    container_name: databook-seq
+    image: datalust/seq:latest
+    environment:
+      ACCEPT_EULA: "Y"
+      SEQ_FIRSTRUN_NOAUTHENTICATION: "true"
+    ports:
+      - "8081:80"
+      - "5341:5341"
+    restart: unless-stopped 
+    networks:
+      - databook-network
+
+networks:
+  databook-network:
+    driver: bridge
+
+volumes:
+  postgres_data:

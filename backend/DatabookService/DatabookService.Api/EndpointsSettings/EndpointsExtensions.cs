@@ -2,7 +2,7 @@
 using DatabookService.Application.Interfaces;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
-namespace ContentService.Web.EndpointsSettings;
+namespace DatabookService.Web.EndpointsSettings;
 
 public static class EndpointsExtensions
 {

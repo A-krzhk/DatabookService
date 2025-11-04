@@ -4,7 +4,7 @@ using DatabookService.Domain.Entities;
 using DatabookService.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 
-namespace DatabookService.Application.Services;
+namespace DatabookService.Infrastructure.Services;
 
 public class DynamicTableService : IDynamicTableService
 {
