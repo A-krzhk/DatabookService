@@ -14,6 +14,8 @@ public class DirectoryField
     public Guid? ReferenceDirectoryTypeId { get; private set; }
     public int Order { get; private set; }
     
+    public bool IsCollection { get; private set; }
+    
     public DirectoryType DirectoryType { get; private set; } = null!;
     public DirectoryType? ReferenceDirectoryType { get; private set; }
 
@@ -26,6 +28,7 @@ public class DirectoryField
         FieldDataType dataType,
         bool isRequired,
         int order,
+        bool isCollection,
         Guid? referenceDirectoryTypeId = null)
     {
         if (string.IsNullOrWhiteSpace(name))
@@ -44,6 +47,7 @@ public class DirectoryField
         DataType = dataType;
         IsRequired = isRequired;
         Order = order;
+        IsCollection = isCollection;
         ReferenceDirectoryTypeId = referenceDirectoryTypeId;
     }
 }
