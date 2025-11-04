@@ -64,9 +64,24 @@ services:
     ports:
       - "8081:80"
       - "5341:5341"
-    restart: unless-stopped 
+    restart: unless-stopped
     networks:
       - databook-network
+
+  # pgAdmin
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: databook-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: postgres@gmail.com
+      PGADMIN_DEFAULT_PASSWORD: postgres
+    ports:
+      - "8080:80"
+    depends_on:
+      - postgres
+    networks:
+      - databook-network
+    restart: unless-stopped
 
 networks:
   databook-network:
