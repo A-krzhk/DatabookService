@@ -2,6 +2,7 @@ using DatabookService.Application.DTOs;
 using DatabookService.Application.Interfaces;
 using DatabookService.Domain.Entities;
 using DatabookService.Domain.Enums;
+using Microsoft.Extensions.Logging;
 
 namespace DatabookService.Application.Features.DatabookTypes.Create;
 
@@ -9,19 +10,23 @@ public class CreateDirectoryTypeCommand
 {
     private readonly IDirectoryTypeRepository _repository;
     private readonly IDynamicTableService _dynamicTableService;
+    private readonly ILogger<CreateDirectoryTypeCommand> _logger;
 
     public CreateDirectoryTypeCommand(
         IDirectoryTypeRepository repository,
-        IDynamicTableService dynamicTableService)
+        IDynamicTableService dynamicTableService,
+        ILogger<CreateDirectoryTypeCommand> logger)
     {
         _repository = repository;
         _dynamicTableService = dynamicTableService;
+        _logger = logger;
     }
 
     public async Task<DirectoryTypeDto> ExecuteAsync(
         CreateDirectoryTypeDto dto,
         CancellationToken cancellationToken = default)
     {
+        _logger.LogInformation("Creating Databook Directory Type");
         // Проверка существования таблицы
         if (await _repository.TableNameExistsAsync(dto.TableName, cancellationToken))
         {
