@@ -66,6 +66,7 @@ try
     // Repositories
     builder.Services.AddScoped<IDirectoryTypeRepository, DirectoryTypeRepository>();
     builder.Services.AddScoped<DatabookService.Application.Interfaces.Repositories.IApiKeyRepository, ApiKeyRepository>();
+    builder.Services.AddScoped<DatabookService.Application.Interfaces.Repositories.IDirectoryCollectionRepository, DirectoryCollectionRepository>();
 
     // Services
     builder.Services.AddScoped<IDynamicTableService, DynamicTableService>(sp =>

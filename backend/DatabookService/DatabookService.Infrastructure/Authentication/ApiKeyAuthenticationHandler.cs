@@ -40,7 +40,7 @@ public class ApiKeyAuthenticationHandler : AuthenticationHandler<ApiKeyAuthentic
 
         var now = DateTimeOffset.UtcNow;
         // We cannot search by hash directly without hashing the input; we'll verify against active keys
-        var activeKeys = await _dbContext.Set<ApiKey>()
+        var activeKeys = await _dbContext.ApiKeys
             .Where(k => k.IsActive && (!k.ExpiresAt.HasValue || k.ExpiresAt > now))
             .ToListAsync(Context.RequestAborted);
 

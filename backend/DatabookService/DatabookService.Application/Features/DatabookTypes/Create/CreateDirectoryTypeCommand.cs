@@ -94,7 +94,8 @@ public class CreateDirectoryTypeCommand
                 f.Order,
                 f.IsCollection,
                 f.ReferenceDirectoryTypeId,
-                f.ReferenceDirectoryType?.Name
+                f.ReferenceDirectoryType?.Name,
+                null // CollectionData не загружается при создании
             )).ToList()
         );
     }

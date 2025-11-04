@@ -18,5 +18,12 @@ public record DirectoryFieldDto(
     int Order,
     bool IsCollection,
     Guid? ReferenceDirectoryTypeId,
-    string? ReferenceDirectoryTypeName
+    string? ReferenceDirectoryTypeName,
+    List<CollectionItemDto>? CollectionData
+);
+
+public record CollectionItemDto(
+    Guid Id,
+    Guid DirectoryTypeItemId,
+    object? Value
 );
