@@ -1,19 +1,27 @@
-using System.Diagnostics;
-using System.Text;
 using DatabookService.Application.Interfaces;
 using DatabookService.Domain.Entities;
 using DatabookService.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Internal;
+using Microsoft.Extensions.Configuration;
+using Newtonsoft.Json.Linq;
+using Npgsql;
+using System.Diagnostics;
+using System.Text;
+using System.Text.Json;
+using System.Xml.Linq;
 
 namespace DatabookService.Infrastructure.Services;
 
 public class DynamicTableService : IDynamicTableService
 {
     private readonly DbContext _context;
+    private readonly string _connectionString;
 
-    public DynamicTableService(DbContext context)
+    public DynamicTableService(DbContext context, IConfiguration configuration)
     {
         _context = context;
+        _connectionString = configuration.GetConnectionString("DefaultConnection"); ;
     }
 
     public async Task CreateTableAsync(DirectoryType directoryType, CancellationToken cancellationToken = default)
@@ -132,5 +140,132 @@ public class DynamicTableService : IDynamicTableService
         }
 
         return definition;
+    }
+
+    public async Task<int> InsertValues(
+        string tableName,
+        IReadOnlyCollection<DirectoryField> expectedFields,
+        Dictionary<string, object> actualFields,
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+
+        //заполняем только переданные поля (!isRequired могут не передаваться)
+        var validFields = expectedFields
+                .Where(f => actualFields.ContainsKey(f.ColumnName));
+
+        //выборка полей для добавления
+        var columnNames = string.Join(", ", validFields.Select(f => $@"""{f.ColumnName}"""));
+        //параметризация в формате "p_ColumnName"  
+        var parameterNames = string.Join(", ", validFields.Select(f => $"@p_{f.ColumnName}"));
+
+        var sql = $@"INSERT INTO ""{tableName}"" ({columnNames}) VALUES ({parameterNames})";
+
+        //Вставка реальных значений вместо "p_ColumnName"  
+        var parameters = validFields.Select(f =>
+            {
+                var value = actualFields[f.ColumnName] ?? DBNull.Value;
+                value = ConvertJsonToCorrectType(f, value);
+
+                var parameter = new NpgsqlParameter($"@p_{f.ColumnName}", value);
+                return parameter;
+            }
+        ).ToList();
+
+        var result = await _context.Database.ExecuteSqlRawAsync(sql, parameters, cancellationToken);
+
+        return result;
+    }
+
+    //конвертирование типов данных полей из JSON для добавления в БД
+    private object ConvertJsonToCorrectType(DirectoryField f, object value) 
+    {
+        var valueKind = ((JsonElement)value).ValueKind;
+
+        // Преобразуем строки в Guid для Reference полей
+        if ((f.DataType == FieldDataType.Reference || f.DataType == FieldDataType.Identifier) 
+            && valueKind == JsonValueKind.String)
+        {
+            string stringValue = ((JsonElement)value).GetString();
+            if (Guid.TryParse(stringValue, out Guid guidValue))
+                return guidValue;
+        }
+
+        if (f.DataType == FieldDataType.Checkbox
+                 && (valueKind == JsonValueKind.True
+                    || valueKind == JsonValueKind.False))
+        {
+            bool boolValue = ((JsonElement)value).GetBoolean();
+            return boolValue;
+        }
+
+        if (f.DataType == FieldDataType.Number
+                 && valueKind == JsonValueKind.Number)
+        {
+            int numValue = ((JsonElement)value).GetInt32();
+            return numValue;
+        }
+
+        return value;
+    }
+
+    public async Task<bool> IsReferenceCorrect(
+        string tableName,
+        object value,
+        CancellationToken cancellationToken = default) 
+    {
+        if (!(value is Guid or string))
+            return false;
+
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+
+        try
+        {   
+            var pkName = await GetPrimaryKeyColumnNameAsync(tableName, connection, cancellationToken); //определение первичного ключа
+
+            if (string.IsNullOrEmpty(pkName)) 
+            {
+                return false; //если не смогли найти первичный ключ в таблице, на которую есть ссылка,то ошибка
+            }
+            //проверка pk всех записей таблицы, поиск reference
+            var sql = $@"SELECT COUNT(*) FROM ""{tableName}"" WHERE ""{pkName}"" = @reference_value"; 
+
+            await using var command = new NpgsqlCommand(sql, connection);
+            command.Parameters.AddWithValue("@reference_value", value);
+
+            var count = (long?)await command.ExecuteScalarAsync(cancellationToken);
+
+            return count > 0;
+        }
+        catch (NpgsqlException e) 
+        {
+            throw new Exception($"Database error while checking the reference {value}");
+        }
+    }
+
+    private async Task<string> GetPrimaryKeyColumnNameAsync(
+        string tableName,
+        NpgsqlConnection connection, 
+        CancellationToken cancellationToken)
+    {
+        // PostgreSQL системный запрос для получения первичного ключа таблицы
+        var sql = @"
+        SELECT column_name
+        FROM information_schema.key_column_usage
+        WHERE table_name = @table_name 
+          AND constraint_name IN (
+            SELECT constraint_name 
+            FROM information_schema.table_constraints 
+            WHERE table_name = @table_name 
+              AND constraint_type = 'PRIMARY KEY'
+          )";
+
+        await using var command = new NpgsqlCommand(sql, connection);
+        command.Parameters.AddWithValue("@table_name", tableName);
+
+        var result = await command.ExecuteScalarAsync(cancellationToken);
+        return result?.ToString();
     }
 }

@@ -11,6 +11,8 @@ using DatabookService.Web.Middleware;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
 using Serilog.Exceptions;
+using DatabookService.Application.Interfaces.Repositories;
+using DatabookService.Application.Features.DatabookContent;
 
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Information()
@@ -22,7 +24,8 @@ try
     var builder = WebApplication.CreateBuilder(args);
 
     builder.Services.AddEndpoints(typeof(Program).Assembly);
-    builder.Services.AddDirectoryTypesFeature();
+    builder.Services.AddDirectoryTypesFeature(); 
+    builder.Services.AddDatabooksContentFeature();
     builder.Services.AddApiKeysFeature();
 
     // Add services to the container
@@ -70,7 +73,7 @@ try
 
     // Services
     builder.Services.AddScoped<IDynamicTableService, DynamicTableService>(sp =>
-        new DynamicTableService(sp.GetRequiredService<ApplicationDbContext>()));
+        new DynamicTableService(sp.GetRequiredService<ApplicationDbContext>(), sp.GetRequiredService<IConfiguration>()));
 
     // Security services
     builder.Services.AddSingleton<DatabookService.Application.Interfaces.Security.IApiKeyHasher, DatabookService.Infrastructure.Security.ApiKeyHasherPbkdf2>();
@@ -158,6 +161,7 @@ try
     app.UseCors("AllowFrontend");
 
     app.MapDirectoryTypesFeature();
+    app.MapDatabooksContentFeature();
     app.MapApiKeysFeature();
 
     app.Run();
