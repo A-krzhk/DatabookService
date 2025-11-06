@@ -50,4 +50,20 @@ public class DirectoryField
         IsCollection = isCollection;
         ReferenceDirectoryTypeId = referenceDirectoryTypeId;
     }
+
+    public void UpdateName(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            throw new ArgumentException("Name cannot be empty", nameof(name));
+        
+        Name = name;
+    }
+
+    public void UpdateOrder(int order)
+    {
+        if (order < 0)
+            throw new ArgumentException("Order must be >= 0", nameof(order));
+        
+        Order = order;
+    }
 }

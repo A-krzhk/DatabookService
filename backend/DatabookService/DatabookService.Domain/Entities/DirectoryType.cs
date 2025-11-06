@@ -56,6 +56,24 @@ public class DirectoryType
         DeletedDate = DateTime.UtcNow;
     }
 
+    public void RemoveField(DirectoryField field)
+    {
+        if (!_fields.Contains(field))
+            throw new InvalidOperationException($"Field '{field.Name}' not found in directory type '{Name}'");
+        
+        _fields.Remove(field);
+    }
+
+    public DirectoryField? GetFieldByColumnName(string columnName)
+    {
+        return _fields.FirstOrDefault(f => f.ColumnName == columnName);
+    }
+
+    public DirectoryField? GetFieldById(Guid fieldId)
+    {
+        return _fields.FirstOrDefault(f => f.Id == fieldId);
+    }
+
     private static bool IsValidTableName(string tableName)
     {
         return System.Text.RegularExpressions.Regex.IsMatch(
