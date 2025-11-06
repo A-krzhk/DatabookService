@@ -11,8 +11,8 @@ public class CreateDirectoryTypeEndpoint : IEndpoint
     public void MapEndpoint(WebApplication app)
     {
         var group = app.MapGroup("/api/directory-types")
-            .WithTags("Directory Types")
-            .RequireAuthorization("AdminOnly");
+            .WithTags("Directory Types");
+            //.RequireAuthorization("AdminOnly");
 
         group.MapPost("/", CreateDirectoryType)
             .WithName("CreateDirectoryType")
