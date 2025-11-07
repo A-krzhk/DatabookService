@@ -11,7 +11,6 @@ using DatabookService.Infrastructure.Services;
 using DatabookService.Web.EndpointsSettings;
 using DatabookService.Web.Middleware;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 using Serilog;
 using Serilog.Exceptions;
 using System.Globalization;

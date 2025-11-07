@@ -4,11 +4,6 @@ using DatabookService.Application.Interfaces;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace DatabookService.Application.Features.DatabookContent.Create
 {
@@ -16,7 +11,7 @@ namespace DatabookService.Application.Features.DatabookContent.Create
     {
         public void MapEndpoint(WebApplication app)
         {
-            var group = app.MapGroup("/api/databooks")
+            var group = app.MapGroup("/api/directory-record")
                 .WithTags("Directory Records")
                 .RequireAuthorization("AdminOnly");
 
