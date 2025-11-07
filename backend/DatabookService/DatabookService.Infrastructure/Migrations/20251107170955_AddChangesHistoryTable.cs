@@ -37,7 +37,7 @@ namespace DatabookService.Infrastructure.Migrations
                     RecordId = table.Column<Guid>(type: "uuid", nullable: false),
                     TableName = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: false),
                     Action = table.Column<int>(type: "integer", nullable: false),
-                    FieldName = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
+                    FieldName = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
                     OldValue = table.Column<string>(type: "text", nullable: true),
                     NewValue = table.Column<string>(type: "text", nullable: true),
                     ChangedBy = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),

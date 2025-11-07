@@ -80,7 +80,6 @@ namespace DatabookService.Infrastructure.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<string>("FieldName")
-                        .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 

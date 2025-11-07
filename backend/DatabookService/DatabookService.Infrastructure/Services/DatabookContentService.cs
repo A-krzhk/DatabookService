@@ -17,14 +17,16 @@ namespace DatabookService.Infrastructure.Services
         private readonly string _connectionString;
         private readonly ITypesValidationService _typesValidationService;
 
-        public DatabookContentService(IConfiguration configuration, ITypesValidationService typesValidationService) 
+        public DatabookContentService(
+            IConfiguration configuration,
+            ITypesValidationService typesValidationService) 
         {
             _connectionString = configuration.GetConnectionString("DefaultConnection");
             _typesValidationService = typesValidationService;
         }
 
-        public async Task<int> InsertValues(
-            string tableName,
+        public async Task<Guid?> InsertValues(
+            DirectoryType table,
             IReadOnlyCollection<DirectoryField> expectedFields,
             Dictionary<string, object> actualFields,
             CancellationToken cancellationToken = default)
@@ -39,8 +41,8 @@ namespace DatabookService.Infrastructure.Services
                 // Вставляем основную запись (Не коллекционные поля)
                 var mainFields = expectedFields
                                  .Where(f => !f.IsCollection && actualFields.ContainsKey(f.ColumnName));
-                var recordId = new Guid();
-                recordId = (Guid)await InsertMainRecord(tableName, expectedFields, actualFields, connection, transaction, cancellationToken);
+                Guid? recordId = null;
+                recordId = (Guid)await InsertMainRecord(table.TableName, expectedFields, actualFields, connection, transaction, cancellationToken);
 
                 // Вставляем коллекции таблицу коллекции
                 var collectionFields = expectedFields
@@ -50,11 +52,11 @@ namespace DatabookService.Infrastructure.Services
                 foreach (var field in collectionFields)
                 {
                     var values = actualFields[field.ColumnName];
-                    await InsertCollectionItems(tableName, (Guid)recordId, field, values, connection, transaction, cancellationToken);
+                    await InsertCollectionItems(table.TableName, (Guid)recordId, field, values, connection, transaction, cancellationToken);
                 }
-
-                await transaction.CommitAsync(cancellationToken);
-                return 1;
+                
+                await transaction.CommitAsync(cancellationToken);               
+                return recordId;
             }
             catch
             {

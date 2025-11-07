@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace DatabookService.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20251107145200_AddChangesHistoryTable")]
+    [Migration("20251107170955_AddChangesHistoryTable")]
     partial class AddChangesHistoryTable
     {
         /// <inheritdoc />
@@ -83,7 +83,6 @@ namespace DatabookService.Infrastructure.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<string>("FieldName")
-                        .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 

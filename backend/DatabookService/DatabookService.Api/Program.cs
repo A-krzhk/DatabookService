@@ -29,6 +29,7 @@ try
     builder.Services.AddDirectoryTypesFeature(); 
     builder.Services.AddDatabooksContentFeature();
     builder.Services.AddApiKeysFeature();
+    builder.Services.AddHttpContextAccessor(); //Для получения HttpContext в сервисах
 
     // Add services to the container
     builder.Services.AddEndpointsApiExplorer();

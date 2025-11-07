@@ -9,8 +9,8 @@ namespace DatabookService.Application.Interfaces.Services
 {
     public interface IDatabookContentService
     {
-        Task<int> InsertValues(
-            string tableName,
+        Task<Guid?> InsertValues(
+            DirectoryType tableName,
             IReadOnlyCollection<DirectoryField> expectedFields,
             Dictionary<string, object> actualFields,
             CancellationToken cancellationToken = default);
