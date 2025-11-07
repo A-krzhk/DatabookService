@@ -1,4 +1,6 @@
 using DatabookService.Application.Interfaces.Repositories;
+using DatabookService.Domain.Entities;
+using DatabookService.Domain.Enums;
 using DatabookService.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -119,5 +121,135 @@ public class DirectoryContentRepository : IDirectoryContentRepository
             await transaction.RollbackAsync(cancellationToken);
             throw;
         }
+    }
+
+    public async Task<List<Dictionary<string, object>>> GetAllRecordsAsync(
+        string tableName,
+        IReadOnlyCollection<DirectoryField> fields,
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+
+        // Основная таблица
+        var regularFields = fields.Where(f => !f.IsCollection).ToList();
+        var columnNames = string.Join(", ", regularFields.Select(f => $"\"{f.ColumnName}\""));
+        var sql = $"SELECT \"Id\", {columnNames} FROM \"{tableName}\" WHERE \"IsDeleted\" = FALSE";
+
+        var result = new List<Dictionary<string, object>>();
+        await using (var command = new NpgsqlCommand(sql, connection))
+        await using (var reader = await command.ExecuteReaderAsync(cancellationToken))
+        {
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                var row = new Dictionary<string, object>();
+                for (int i = 0; i < reader.FieldCount; i++)
+                    row[reader.GetName(i)] = reader.IsDBNull(i) ? null! : reader.GetValue(i);
+                result.Add(row);
+            }
+        }
+
+        // Теперь подгружаем коллекционные поля
+        var collectionFields = fields.Where(f => f.IsCollection).ToList();
+        foreach (var record in result)
+        {
+            var id = (Guid)record["Id"];
+            foreach (var field in collectionFields)
+            {
+                var collectionTableName = $"{tableName}_{field.ColumnName}";
+                var sqlCollection = "";
+
+                // Для ссылок и простых коллекций разная логика
+                if (field.DataType == FieldDataType.Reference)
+                {
+                    sqlCollection =
+                        $@"SELECT ""{field.ReferenceDirectoryType.TableName}Id"" FROM ""{collectionTableName}""
+                                   WHERE ""IdRecord"" = @id ORDER BY ""SortOrder""";
+                }
+                else
+                {
+                    sqlCollection = $@"SELECT ""Value"" FROM ""{collectionTableName}""
+                                   WHERE ""IdRecord"" = @id ORDER BY ""SortOrder""";
+                }
+
+                await using var commandCollection = new NpgsqlCommand(sqlCollection, connection);
+                commandCollection.Parameters.AddWithValue("@id", id);
+
+                var values = new List<object>();
+                await using var readerCollection = await commandCollection.ExecuteReaderAsync(cancellationToken);
+                while (await readerCollection.ReadAsync(cancellationToken))
+                {
+                    values.Add(readerCollection.IsDBNull(0) ? null! : readerCollection.GetValue(0));
+                }
+
+                await readerCollection.CloseAsync();
+                record[field.ColumnName] = values;
+            }
+        }
+
+        return result;
+    }
+
+
+    public async Task<Dictionary<string, object>?> GetRecordByIdAsync(
+        string tableName,
+        Guid id,
+        IReadOnlyCollection<DirectoryField> fields,
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+
+        // Основные поля
+        var regularFields = fields.Where(f => !f.IsCollection).ToList();
+        var columnNames = string.Join(", ", regularFields.Select(f => $"\"{f.ColumnName}\""));
+        var sql = $"SELECT \"Id\", {columnNames} FROM \"{tableName}\" WHERE \"Id\" = @id AND \"IsDeleted\" = FALSE";
+
+        var result = new Dictionary<string, object>();
+        await using (var command = new NpgsqlCommand(sql, connection))
+        {
+            command.Parameters.AddWithValue("@id", id);
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            if (!await reader.ReadAsync(cancellationToken))
+                return null;
+
+            for (int i = 0; i < reader.FieldCount; i++)
+                result[reader.GetName(i)] = reader.IsDBNull(i) ? null! : reader.GetValue(i);
+        }
+
+        // Подгружаем коллекционные поля
+        var collectionFields = fields.Where(f => f.IsCollection).ToList();
+        foreach (var field in collectionFields)
+        {
+            var collectionTableName = $"{tableName}_{field.ColumnName}";
+            var sqlCollection = "";
+
+            if (field.DataType == FieldDataType.Reference)
+            {
+                sqlCollection = $@"SELECT ""{field.ReferenceDirectoryType.TableName}Id"" FROM ""{collectionTableName}""
+                               WHERE ""IdRecord"" = @id ORDER BY ""SortOrder""";
+            }
+            else
+            {
+                sqlCollection = $@"SELECT ""Value"" FROM ""{collectionTableName}""
+                               WHERE ""IdRecord"" = @id ORDER BY ""SortOrder""";
+            }
+
+            await using var commandCollection = new NpgsqlCommand(sqlCollection, connection);
+            commandCollection.Parameters.AddWithValue("@id", id);
+
+            var values = new List<object>();
+            await using var readerCollection = await commandCollection.ExecuteReaderAsync(cancellationToken);
+            while (await readerCollection.ReadAsync(cancellationToken))
+            {
+                values.Add(readerCollection.IsDBNull(0) ? null! : readerCollection.GetValue(0));
+            }
+
+            await readerCollection.CloseAsync();
+
+            result[field.ColumnName] = values;
+        }
+
+        return result;
     }
 }
