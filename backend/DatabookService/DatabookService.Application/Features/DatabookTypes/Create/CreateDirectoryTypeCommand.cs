@@ -1,5 +1,6 @@
 using DatabookService.Application.DTOs;
 using DatabookService.Application.Interfaces;
+using DatabookService.Application.Interfaces.Services;
 using DatabookService.Domain.Entities;
 using DatabookService.Domain.Enums;
 using Microsoft.Extensions.Logging;
@@ -121,7 +122,6 @@ public class CreateDirectoryTypeCommand
             directoryType.Name,
             directoryType.TableName,
             directoryType.Description,
-            directoryType.CreatedAt,
             directoryType.Fields.Select(f => new DirectoryFieldDto(
                 f.Id,
                 f.Name,

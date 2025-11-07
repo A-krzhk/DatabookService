@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace DatabookService.Application.DTOs
+﻿namespace DatabookService.Application.DTOs
 {
     //модель для сохранения результата валидации
     public class ValidationResult

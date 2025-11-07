@@ -53,4 +53,18 @@ public class DirectoryField
         ReferenceDirectoryTypeId = referenceDirectoryTypeId;
         EnumValues = enumValues;
     }
+    
+    public void Update(string name, int order, bool isRequired)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            throw new ArgumentException("Name cannot be empty", nameof(name));
+    
+        // Можно сделать обязательное поле необязательным, но не наоборот
+        if (!IsRequired && isRequired)
+            throw new InvalidOperationException("Cannot change non-required field to required");
+    
+        Name = name;
+        Order = order;
+        IsRequired = isRequired;
+    }
 }

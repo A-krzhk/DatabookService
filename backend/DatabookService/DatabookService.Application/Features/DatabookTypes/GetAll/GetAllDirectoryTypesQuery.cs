@@ -61,7 +61,6 @@ public class GetAllDirectoryTypesQuery
                 dt.Name,
                 dt.TableName,
                 dt.Description,
-                dt.CreatedAt,
                 fields
             ));
         }

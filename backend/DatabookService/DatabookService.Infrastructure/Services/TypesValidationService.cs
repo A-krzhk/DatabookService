@@ -3,13 +3,8 @@ using DatabookService.Application.Interfaces;
 using DatabookService.Application.Interfaces.Services;
 using DatabookService.Domain.Entities;
 using DatabookService.Domain.Enums;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Npgsql;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using System.Xml.Linq;
@@ -18,7 +13,7 @@ namespace DatabookService.Infrastructure.Services
 {
     public class TypesValidationService : ITypesValidationService
     {
-        private readonly string _connectionString;
+        private readonly string? _connectionString;
 
         public TypesValidationService(IConfiguration configuration)
         {
@@ -31,7 +26,7 @@ namespace DatabookService.Infrastructure.Services
             var valueKind = ((JsonElement)value).ValueKind;
 
             if (f.DataType == FieldDataType.String && valueKind == JsonValueKind.String)
-                return ((JsonElement)value).GetString(); 
+                return ((JsonElement)value).GetString();
 
             // Преобразуем строки в Guid для Reference полей
             if ((f.DataType == FieldDataType.Reference || f.DataType == FieldDataType.Identifier)
@@ -127,14 +122,14 @@ namespace DatabookService.Infrastructure.Services
         {
             // PostgreSQL системный запрос для получения первичного ключа таблицы
             var sql = @"
-        SELECT column_name
-        FROM information_schema.key_column_usage
-        WHERE table_name = @table_name 
-          AND constraint_name IN (
-            SELECT constraint_name 
-            FROM information_schema.table_constraints 
-            WHERE table_name = @table_name 
-              AND constraint_type = 'PRIMARY KEY'
+                SELECT column_name
+                FROM information_schema.key_column_usage
+                WHERE table_name = @table_name 
+                  AND constraint_name IN (
+                    SELECT constraint_name 
+                    FROM information_schema.table_constraints 
+                    WHERE table_name = @table_name 
+                      AND constraint_type = 'PRIMARY KEY'
           )";
 
             await using var command = new NpgsqlCommand(sql, connection);
@@ -181,7 +176,7 @@ namespace DatabookService.Infrastructure.Services
 
         private bool IsEmptyCollection(object value)
         {
-            if (value == null)
+            if (value == null) 
                 return true;
 
             return value switch
@@ -272,7 +267,8 @@ namespace DatabookService.Infrastructure.Services
             CancellationToken cancellationToken = default)
         {
             //функция для проверки типов
-            if (field == null) return true;
+            if (field == null) 
+                return true;
 
             //Проверка для jsonElement
             if (fieldValue is JsonElement element)
