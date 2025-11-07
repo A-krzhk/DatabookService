@@ -23,6 +23,9 @@ namespace DatabookService.Infrastructure.Services
         {
             var valueKind = ((JsonElement)value).ValueKind;
 
+            if (f.DataType == FieldDataType.String && valueKind == JsonValueKind.String)
+                return ((JsonElement)value).GetString();
+
             // Преобразуем строки в Guid для Reference полей
             if ((f.DataType == FieldDataType.Reference || f.DataType == FieldDataType.Identifier)
                 && valueKind == JsonValueKind.String)
