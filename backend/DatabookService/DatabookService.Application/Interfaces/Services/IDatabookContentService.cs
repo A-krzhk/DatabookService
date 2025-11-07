@@ -14,6 +14,21 @@ namespace DatabookService.Application.Interfaces.Services
             IReadOnlyCollection<DirectoryField> expectedFields,
             Dictionary<string, object> actualFields,
             CancellationToken cancellationToken = default);
+        
+        Task<List<Dictionary<string, object>>> GetAllRecordsAsync(
+            string tableName,
+            IReadOnlyCollection<DirectoryField> fields,
+            int? pageNumber = null,
+            int? pageSize = null,
+            CancellationToken cancellationToken = default);
+        
+        Task<Dictionary<string, object>?> GetRecordByIdAsync(
+            string tableName, 
+            Guid id, 
+            IReadOnlyCollection<DirectoryField> fields, 
+            CancellationToken cancellationToken = default);
+        
+        Task<int> GetTotalCountAsync(string tableName, CancellationToken cancellationToken = default);
 
     }
 }

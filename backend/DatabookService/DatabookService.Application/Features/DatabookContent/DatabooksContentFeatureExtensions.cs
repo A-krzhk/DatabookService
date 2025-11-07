@@ -10,6 +10,7 @@ using System.Text;
 using System.Threading.Tasks;
 using DatabookService.Application.Features.DatabookContent.Delete;
 using DatabookService.Application.Features.DatabookContent.Delete.BackgroundJobs;
+using DatabookService.Application.Features.DatabookContent.Get;
 
 namespace DatabookService.Application.Features.DatabookContent
 {
@@ -20,6 +21,8 @@ namespace DatabookService.Application.Features.DatabookContent
             // Регистрация Commands и Queries
             services.AddScoped<CreateDatabookRecordCommand>();
             services.AddScoped<SoftDeleteDirectoryRecordCommand>();
+            services.AddScoped<GetAllDatabookRecordsQuery>();
+            services.AddScoped<GetDatabookRecordByIdQuery>();
             
             //Фоновые процессы
             services.AddHostedService<DirectoryRecordsCleanupService>();
@@ -35,6 +38,9 @@ namespace DatabookService.Application.Features.DatabookContent
             
             var softDeleteDirectoryRecord = new SoftDeleteDirectoryRecordEndpoint();
             softDeleteDirectoryRecord.MapEndpoint(app);
+            
+            var getDatabookEndpoints = new GetDatabookEndpoints();
+            getDatabookEndpoints.MapEndpoint(app);
         }
     }
 }

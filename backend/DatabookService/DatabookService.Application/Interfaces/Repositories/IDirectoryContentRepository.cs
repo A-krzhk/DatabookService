@@ -1,3 +1,5 @@
+using DatabookService.Domain.Entities;
+
 namespace DatabookService.Application.Interfaces.Repositories;
 
 public interface IDirectoryContentRepository
