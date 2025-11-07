@@ -28,6 +28,7 @@ try
     builder.Services.AddDirectoryTypesFeature(); 
     builder.Services.AddDatabooksContentFeature();
     builder.Services.AddApiKeysFeature();
+    builder.Services.AddHttpContextAccessor(); //Для получения HttpContext в сервисах
 
     // Add services to the container
     builder.Services.AddEndpointsApiExplorer();
@@ -72,14 +73,15 @@ try
     builder.Services.AddScoped<IDirectoryContentRepository, DirectoryContentRepository>();
     builder.Services.AddScoped<DatabookService.Application.Interfaces.Repositories.IApiKeyRepository, ApiKeyRepository>();
     builder.Services.AddScoped<DatabookService.Application.Interfaces.Repositories.IDirectoryCollectionRepository, DirectoryCollectionRepository>();
-
+    builder.Services.AddScoped<DatabookService.Application.Interfaces.Repositories.IChangesHistoryRecordRepository, ChangesHistoryRecordRepository>();
+    
     // Services
     builder.Services.AddScoped<IDynamicTableService, DynamicTableService>(sp =>
         new DynamicTableService(sp.GetRequiredService<ApplicationDbContext>(), 
                                 sp.GetRequiredService<IConfiguration>()));
     builder.Services.AddScoped<ITypesValidationService, TypesValidationService>();
     builder.Services.AddScoped<IDatabookContentService, DatabookContentService>();
-
+    builder.Services.AddScoped<IChangesHistoryRecordService, ChangesHistoryRecordService>(); 
 
     // Security services
     builder.Services.AddSingleton<DatabookService.Application.Interfaces.Security.IApiKeyHasher, DatabookService.Infrastructure.Security.ApiKeyHasherPbkdf2>();

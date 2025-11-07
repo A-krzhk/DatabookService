@@ -1,3 +1,4 @@
+using DatabookService.Application.Interfaces;
 using DatabookService.Application.Interfaces.Repositories;
 using DatabookService.Domain.Entities;
 using DatabookService.Domain.Enums;
@@ -12,11 +13,13 @@ public class DirectoryContentRepository : IDirectoryContentRepository
 {
     private readonly ApplicationDbContext _context;
     private readonly string _connectionString;
+    private readonly IDirectoryTypeRepository _directoryTypeRepository;
 
-    public DirectoryContentRepository(ApplicationDbContext context, IConfiguration configuration)
+    public DirectoryContentRepository(ApplicationDbContext context, IConfiguration configuration, IDirectoryTypeRepository directoryTypeRepository)
     {
         _context = context;
         _connectionString = configuration.GetConnectionString("DefaultConnection");
+        _directoryTypeRepository = directoryTypeRepository;
     }
     
     /// Помечает запись как удалённую (IsDeleted = true, DeletedAt = now)
@@ -121,6 +124,55 @@ public class DirectoryContentRepository : IDirectoryContentRepository
             await transaction.RollbackAsync(cancellationToken);
             throw;
         }
+    }
+
+    //Метод для получения записи по её Id из табллицы с Id directoryTypeId (для записи истории удаления)
+    public async Task<Dictionary<string, object>> GetRecordByIdAsync(
+        Guid directoryTypeId,
+        Guid recordId,
+        CancellationToken cancellationToken = default)
+    {
+        var directoryType = await _directoryTypeRepository.GetByIdAsync(directoryTypeId, cancellationToken);
+        if (directoryType == null)
+            throw new ArgumentException("Directory type not found");
+
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+
+        var sql = $@"SELECT * FROM ""{directoryType.TableName}"" WHERE ""Id"" = @recordId";
+
+        await using var command = new NpgsqlCommand(sql, connection);
+        command.Parameters.AddWithValue("@recordId", recordId);
+
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+
+        if (await reader.ReadAsync(cancellationToken))
+        {
+            var result = new Dictionary<string, object>();
+
+            // Список системных полей для исключения
+            var systemFields = new List<string>
+            {
+                "Id", "IsDeleted", "CreatedAt", "DeletedAt", "UpdatedAt", "DeletedDate"
+            };
+
+            for (int i = 0; i < reader.FieldCount; i++)
+            {
+                var fieldName = reader.GetName(i);
+
+                // Если поле не системное - сохраняем
+                if (!systemFields.Contains(fieldName))
+                {
+                    var value = reader.GetValue(i);
+                    result[fieldName] = value == DBNull.Value ? null : value;
+                }
+            }
+
+            return result;
+        }
+
+        throw new ArgumentException($"Record with ID {recordId} not found");
+    }
     }
 
     public async Task<List<Dictionary<string, object>>> GetAllRecordsAsync(

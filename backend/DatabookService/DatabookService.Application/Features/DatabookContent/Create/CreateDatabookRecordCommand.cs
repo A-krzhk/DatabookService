@@ -18,18 +18,21 @@ public class CreateDatabookRecordCommand
     private readonly IDirectoryTypeRepository _directoryTypeRepository;
     private readonly ITypesValidationService _typesValidationService;
     private readonly IDatabookContentService _databookContentService;
+    private readonly IChangesHistoryRecordService _changesHistoryService;
     private readonly ILogger<CreateDatabookRecordCommand> _logger;
 
     public CreateDatabookRecordCommand(
         IDirectoryTypeRepository directoryTypeRepository,
         ITypesValidationService typesValidationService,
         IDatabookContentService databookContentService,
+        IChangesHistoryRecordService changesHistoryService,
         ILogger<CreateDatabookRecordCommand> logger)
     {
         _directoryTypeRepository = directoryTypeRepository;
         _logger = logger;
         _typesValidationService = typesValidationService;
         _databookContentService = databookContentService;
+        _changesHistoryService = changesHistoryService;
     }
 
     public async Task<IResult> ExecuteAsync(
@@ -55,10 +58,19 @@ public class CreateDatabookRecordCommand
             return Results.BadRequest(validationResult.ErrorMessage);
         }
 
-        var result = await _databookContentService.InsertValues(directoryType.TableName, fields, recordDto.FieldsValues, cancellationToken);
+        var newRecordId = await _databookContentService.InsertValues(directoryType, fields, recordDto.FieldsValues, cancellationToken);
 
-        if (result == 0)
+        if (newRecordId == null)
             return Results.BadRequest();
+
+        //Добавление информации в историю записи
+        await _changesHistoryService.LogRecordCreationAsync(
+                        directoryType.Id,
+                        (Guid)newRecordId,
+                        directoryType.TableName,
+                        recordDto.FieldsValues,
+                        cancellationToken);
+
         return Results.Ok();
     }
 }

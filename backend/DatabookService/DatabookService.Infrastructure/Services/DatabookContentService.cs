@@ -10,48 +10,53 @@ public class DatabookContentService : IDatabookContentService
     private readonly string _connectionString;
     private readonly ITypesValidationService _typesValidationService;
 
-    public DatabookContentService(IConfiguration configuration, ITypesValidationService typesValidationService)
-    {
-        _connectionString = configuration.GetConnectionString("DefaultConnection");
-        _typesValidationService = typesValidationService;
-    }
-
-    public async Task<int> InsertValues(
-        string tableName,
-        IReadOnlyCollection<DirectoryField> expectedFields,
-        Dictionary<string, object> actualFields,
-        CancellationToken cancellationToken = default)
-    {
-        await using var connection = new NpgsqlConnection(_connectionString);
-        await connection.OpenAsync(cancellationToken);
-
-        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
-        try
+        public DatabookContentService(
+            IConfiguration configuration,
+            ITypesValidationService typesValidationService) 
         {
-            var recordId = await InsertMainRecord(tableName, expectedFields, actualFields, connection, transaction,
-                               cancellationToken)
-                           ?? throw new InvalidOperationException("Ошибка вставки основной записи");
+            _connectionString = configuration.GetConnectionString("DefaultConnection");
+            _typesValidationService = typesValidationService;
+        }
+
+        public async Task<Guid?> InsertValues(
+            DirectoryType table,
+            IReadOnlyCollection<DirectoryField> expectedFields,
+            Dictionary<string, object> actualFields,
+            CancellationToken cancellationToken = default)
+        {
+            await using var connection = new NpgsqlConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+            int result = 0;
+            try
+            {
+                // Вставляем основную запись (Не коллекционные поля)
+                var mainFields = expectedFields
+                                 .Where(f => !f.IsCollection && actualFields.ContainsKey(f.ColumnName));
+                Guid? recordId = null;
+                recordId = (Guid)await InsertMainRecord(table.TableName, expectedFields, actualFields, connection, transaction, cancellationToken);
 
             // Вставляем коллекционные поля (если есть)
             var collectionFields = expectedFields
                 .Where(f => f.IsCollection && actualFields.ContainsKey(f.ColumnName));
 
-            foreach (var field in collectionFields)
-            {
-                var values = actualFields[field.ColumnName];
-                await InsertCollectionItems(tableName, recordId, field, values, connection, transaction,
-                    cancellationToken);
+                //Если полей-коллекций нет, то и вставляться ничего не будет
+                foreach (var field in collectionFields)
+                {
+                    var values = actualFields[field.ColumnName];
+                    await InsertCollectionItems(table.TableName, (Guid)recordId, field, values, connection, transaction, cancellationToken);
+                }
+                
+                await transaction.CommitAsync(cancellationToken);               
+                return recordId;
             }
-
-            await transaction.CommitAsync(cancellationToken);
-            return 1;
+            catch
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                throw;
+            }
         }
-        catch
-        {
-            await transaction.RollbackAsync(cancellationToken);
-            throw;
-        }
-    }
 
     private async Task<Guid?> InsertMainRecord(
         string tableName,
