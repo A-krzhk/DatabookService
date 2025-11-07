@@ -39,6 +39,40 @@ public class CreateDirectoryTypeCommand
         // Добавление полей
         foreach (var fieldDto in dto.Fields.OrderBy(f => f.Order))
         {
+            // Валидация для Enum полей
+            if ((FieldDataType)fieldDto.DataType == FieldDataType.Enum)
+            {
+                // Проверка что переданы значения Enum
+                if (fieldDto.EnumValues == null || !fieldDto.EnumValues.Any())
+                {
+                    throw new InvalidOperationException(
+                        $"Enum field '{fieldDto.Name}' must have at least one value in EnumValues");
+                }
+
+                // Проверка что все значения не пустые
+                if (fieldDto.EnumValues.Any(string.IsNullOrWhiteSpace))
+                {
+                    throw new InvalidOperationException(
+                        $"Enum field '{fieldDto.Name}' cannot have empty values in EnumValues");
+                }
+
+                // Проверка на дубликаты (опционально)
+                if (fieldDto.EnumValues.Distinct().Count() != fieldDto.EnumValues.Count)
+                {
+                    throw new InvalidOperationException(
+                        $"Enum field '{fieldDto.Name}' has duplicate values in EnumValues");
+                }
+            }
+            else
+            {
+                // Для не-Enum полей EnumValues должен быть null или пустым
+                if (fieldDto.EnumValues != null && fieldDto.EnumValues.Any())
+                {
+                    throw new InvalidOperationException(
+                        $"Non-enum field '{fieldDto.Name}' cannot have EnumValues");
+                }
+            }
+
             // Проверка существования ссылочного справочника
             if (fieldDto.DataType == (int)FieldDataType.Reference && fieldDto.ReferenceDirectoryTypeId.HasValue)
             {
@@ -53,6 +87,8 @@ public class CreateDirectoryTypeCommand
                 }
             }
 
+
+
             var field = new DirectoryField(
                 directoryType.Id,
                 fieldDto.Name,
@@ -61,7 +97,8 @@ public class CreateDirectoryTypeCommand
                 fieldDto.IsRequired,
                 fieldDto.Order,
                 fieldDto.IsCollection,
-                fieldDto.ReferenceDirectoryTypeId
+                fieldDto.ReferenceDirectoryTypeId,
+                fieldDto.EnumValues
             );
 
             directoryType.AddField(field);

@@ -30,7 +30,8 @@ public class DirectoryField
         bool isRequired,
         int order,
         bool isCollection,
-        Guid? referenceDirectoryTypeId = null)
+        Guid? referenceDirectoryTypeId = null,
+        List<string>? enumValues = null)
     {
         if (string.IsNullOrWhiteSpace(name))
             throw new ArgumentException("Name cannot be empty", nameof(name));
@@ -50,5 +51,6 @@ public class DirectoryField
         Order = order;
         IsCollection = isCollection;
         ReferenceDirectoryTypeId = referenceDirectoryTypeId;
+        EnumValues = enumValues;
     }
 }

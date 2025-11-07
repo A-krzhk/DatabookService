@@ -68,6 +68,17 @@ namespace DatabookService.Infrastructure.Services
                 }
             }
 
+            if (f.DataType == FieldDataType.Enum)
+            {
+                if (value is JsonElement element)
+                {
+                    return element.ValueKind == JsonValueKind.String
+                        ? element.GetString()
+                        : element.GetRawText();
+                }
+                return value?.ToString();
+            }
+
             return value;
         }
 
@@ -295,6 +306,7 @@ namespace DatabookService.Infrastructure.Services
                 FieldDataType.Reference => await IsReferenceCorrect(field.ReferenceDirectoryType.TableName, fieldValue, cancellationToken),
                 FieldDataType.Date => fieldValue is DateTime,
                 FieldDataType.Datetime => fieldValue is DateTime,
+                FieldDataType.Enum => ValidateEnumValue(field, fieldValue),
                 _ => false
             };
         }
