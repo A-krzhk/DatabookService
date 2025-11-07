@@ -1,16 +1,20 @@
-using System.Globalization;
-using DatabookService.Application.Features.DatabookTypes;
 using DatabookService.Application.Features.ApiKeys;
+using DatabookService.Application.Features.DatabookContent;
+using DatabookService.Application.Features.DatabookTypes;
 using DatabookService.Application.Interfaces;
-using DatabookService.Infrastructure.Data;
+using DatabookService.Application.Interfaces.Repositories;
+using DatabookService.Application.Interfaces.Services;
 using DatabookService.Infrastructure.Authentication;
+using DatabookService.Infrastructure.Data;
 using DatabookService.Infrastructure.Repositories;
 using DatabookService.Infrastructure.Services;
 using DatabookService.Web.EndpointsSettings;
 using DatabookService.Web.Middleware;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Serilog;
 using Serilog.Exceptions;
+using System.Globalization;
 
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Information()
@@ -22,7 +26,8 @@ try
     var builder = WebApplication.CreateBuilder(args);
 
     builder.Services.AddEndpoints(typeof(Program).Assembly);
-    builder.Services.AddDirectoryTypesFeature();
+    builder.Services.AddDirectoryTypesFeature(); 
+    builder.Services.AddDatabooksContentFeature();
     builder.Services.AddApiKeysFeature();
 
     // Add services to the container
@@ -70,7 +75,11 @@ try
 
     // Services
     builder.Services.AddScoped<IDynamicTableService, DynamicTableService>(sp =>
-        new DynamicTableService(sp.GetRequiredService<ApplicationDbContext>()));
+        new DynamicTableService(sp.GetRequiredService<ApplicationDbContext>(), 
+                                sp.GetRequiredService<IConfiguration>()));
+    builder.Services.AddScoped<ITypesValidationService, TypesValidationService>();
+    builder.Services.AddScoped<IDatabookContentService, DatabookContentService>();
+
 
     // Security services
     builder.Services.AddSingleton<DatabookService.Application.Interfaces.Security.IApiKeyHasher, DatabookService.Infrastructure.Security.ApiKeyHasherPbkdf2>();
@@ -158,6 +167,7 @@ try
     app.UseCors("AllowFrontend");
 
     app.MapDirectoryTypesFeature();
+    app.MapDatabooksContentFeature();
     app.MapApiKeysFeature();
 
     app.Run();

@@ -1,19 +1,30 @@
-using System.Diagnostics;
-using System.Text;
 using DatabookService.Application.Interfaces;
 using DatabookService.Domain.Entities;
 using DatabookService.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Internal;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Primitives;
+using Newtonsoft.Json.Linq;
+using Npgsql;
+using System.Diagnostics;
+using System.Runtime.CompilerServices;
+using System.Text;
+using System.Text.Json;
+using System.Threading;
+using System.Xml.Linq;
 
 namespace DatabookService.Infrastructure.Services;
 
 public class DynamicTableService : IDynamicTableService
 {
     private readonly DbContext _context;
+    private readonly string _connectionString;
 
-    public DynamicTableService(DbContext context)
+    public DynamicTableService(DbContext context, IConfiguration configuration)
     {
         _context = context;
+        _connectionString = configuration.GetConnectionString("DefaultConnection");
     }
 
     public async Task CreateTableAsync(DirectoryType directoryType, CancellationToken cancellationToken = default)
@@ -68,14 +79,14 @@ public class DynamicTableService : IDynamicTableService
             sb.AppendLine();
             sb.AppendLine($"CREATE TABLE \"{linkTableName}\" (");
             sb.AppendLine("    \"Id\" UUID PRIMARY KEY DEFAULT gen_random_uuid(),");
-            sb.AppendLine(
-                $"    \"{directoryType.TableName}Id\" UUID NOT NULL REFERENCES \"{directoryType.TableName}\"(\"Id\") ON DELETE CASCADE,");
+            sb.AppendLine($"    \"IdField\" UUID NOT NULL REFERENCES \"DirectoryFields\"(\"Id\") ON DELETE CASCADE,");
+            sb.AppendLine($"    \"IdRecord\" UUID NOT NULL REFERENCES \"{directoryType.TableName}\"(\"Id\") ON DELETE CASCADE,");
 
             // Если коллекция состоит из ссылок на другой справочник
             if (collectionField.DataType == FieldDataType.Reference && collectionField.ReferenceDirectoryType != null)
             {
                 sb.AppendLine(
-                    $"    \"{collectionField.ReferenceDirectoryType.TableName}Id\" UUID NOT NULL REFERENCES \"{collectionField.ReferenceDirectoryType.TableName}\"(\"Id\") ON DELETE CASCADE");
+                    $"    \"{collectionField.ReferenceDirectoryType.TableName}Id\" UUID NOT NULL REFERENCES \"{collectionField.ReferenceDirectoryType.TableName}\"(\"Id\") ON DELETE CASCADE,");
             }
             // Если коллекция хранит простые значения (строки, числа и т.п.)
             else
@@ -86,23 +97,16 @@ public class DynamicTableService : IDynamicTableService
                     FieldDataType.Number => "NUMERIC",
                     FieldDataType.Checkbox => "BOOLEAN",
                     FieldDataType.Identifier => "UUID",
+                    FieldDataType.Date => "DATE",
+                    FieldDataType.Datetime => "TIMESTAMP",
                     _ => "TEXT"
                 };
 
-                sb.AppendLine($"    \"Value\" {valueColumnType} NOT NULL");
+                sb.AppendLine($"    \"Value\" {valueColumnType} NOT NULL,");
             }
-
+             
+            sb.AppendLine("    \"SortOrder\" INTEGER NOT NULL DEFAULT 0");
             sb.AppendLine(");");
-
-            // Индексы
-            sb.AppendLine(
-                $"CREATE INDEX \"IX_{linkTableName}_{directoryType.TableName}Id\" ON \"{linkTableName}\" (\"{directoryType.TableName}Id\");");
-
-            if (collectionField.DataType == FieldDataType.Reference && collectionField.ReferenceDirectoryType != null)
-            {
-                sb.AppendLine(
-                    $"CREATE INDEX \"IX_{linkTableName}_{collectionField.ReferenceDirectoryType.TableName}Id\" ON \"{linkTableName}\" (\"{collectionField.ReferenceDirectoryType.TableName}Id\");");
-            }
         }
 
         return sb.ToString();
@@ -118,6 +122,8 @@ public class DynamicTableService : IDynamicTableService
             FieldDataType.Identifier => "UUID",
             FieldDataType.Checkbox => "BOOLEAN",
             FieldDataType.Reference => "UUID",
+            FieldDataType.Date => "DATE",
+            FieldDataType.Datetime => "TIMESTAMP",
             _ => throw new ArgumentException($"Unknown data type: {field.DataType}")
         };
 

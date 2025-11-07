@@ -6,5 +6,8 @@ public enum FieldDataType
     Number = 2,
     Identifier = 3,
     Checkbox = 4,
-    Reference = 5
+    Reference = 5,
+    Date = 6,
+    Datetime = 7,
+    Enum = 8
 }
