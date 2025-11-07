@@ -5,7 +5,6 @@ public record DirectoryTypeDto(
     string Name,
     string TableName,
     string? Description,
-    DateTime CreatedAt,
     List<DirectoryFieldDto> Fields
 );
 
