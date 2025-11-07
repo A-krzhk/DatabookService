@@ -1,4 +1,5 @@
 using DatabookService.Application.Interfaces;
+using DatabookService.Application.Interfaces.Services;
 using Microsoft.Extensions.Logging;
 
 namespace DatabookService.Application.Features.DatabookTypes.Update;

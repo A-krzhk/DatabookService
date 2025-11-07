@@ -70,6 +70,7 @@ try
 
     // Repositories
     builder.Services.AddScoped<IDirectoryTypeRepository, DirectoryTypeRepository>();
+    builder.Services.AddScoped<IDirectoryContentRepository, DirectoryContentRepository>();
     builder.Services.AddScoped<DatabookService.Application.Interfaces.Repositories.IApiKeyRepository, ApiKeyRepository>();
     builder.Services.AddScoped<DatabookService.Application.Interfaces.Repositories.IDirectoryCollectionRepository, DirectoryCollectionRepository>();
 

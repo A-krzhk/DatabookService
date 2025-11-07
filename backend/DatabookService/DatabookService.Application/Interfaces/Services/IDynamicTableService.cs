@@ -1,6 +1,6 @@
 using DatabookService.Domain.Entities;
 
-namespace DatabookService.Application.Interfaces;
+namespace DatabookService.Application.Interfaces.Services;
 
 public interface IDynamicTableService
 {

@@ -16,20 +16,17 @@ namespace DatabookService.Application.Features.DatabookContent.Create;
 public class CreateDatabookRecordCommand
 {
     private readonly IDirectoryTypeRepository _directoryTypeRepository;
-    private readonly IDynamicTableService _dynamicTableService;
     private readonly ITypesValidationService _typesValidationService;
     private readonly IDatabookContentService _databookContentService;
     private readonly ILogger<CreateDatabookRecordCommand> _logger;
 
     public CreateDatabookRecordCommand(
         IDirectoryTypeRepository directoryTypeRepository,
-        IDynamicTableService dynamicTableService,
         ITypesValidationService typesValidationService,
         IDatabookContentService databookContentService,
         ILogger<CreateDatabookRecordCommand> logger)
     {
         _directoryTypeRepository = directoryTypeRepository;
-        _dynamicTableService = dynamicTableService;
         _logger = logger;
         _typesValidationService = typesValidationService;
         _databookContentService = databookContentService;
@@ -39,19 +36,19 @@ public class CreateDatabookRecordCommand
         CreateDatabookRecordDto recordDto,
         CancellationToken cancellationToken = default)
     {
-        //Получение directoryType
+        // РџРѕР»СѓС‡Р°РµРј directoryType
         var directoryType = await _directoryTypeRepository.GetByIdAsync(recordDto.TableId);
         if (directoryType == null)
             throw new ArgumentException("Table with such id is not found.");
 
         _logger.LogInformation($"Inserting data in table '{directoryType.TableName}'");
 
-        //получение данных всех полей данной таблицы
+        // РџРѕР»СѓС‡Р°РµРј СЃРїРёСЃРѕРє РїРѕР»РµР№ РґР»СЏ РґР°РЅРЅРѕР№ С‚Р°Р±Р»РёС†С‹
         var fields = directoryType.Fields;
         if (directoryType == null)
             throw new ArgumentException("Table has no any fields.");
 
-        //Валидация добавляемых полей
+        // РџСЂРѕРІРµСЂСЏРµРј РІР°Р»РёРґРЅРѕСЃС‚СЊ РґР°РЅРЅС‹С…
         ValidationResult validationResult = await _typesValidationService.ValidateFields(directoryType.TableName, fields, recordDto.FieldsValues, cancellationToken);
         if (!validationResult.IsValid)
         {

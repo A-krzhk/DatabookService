@@ -17,7 +17,7 @@ namespace DatabookService.Application.Features.DatabookContent.Create
         public void MapEndpoint(WebApplication app)
         {
             var group = app.MapGroup("/api/databooks")
-                .WithTags("Databooks")
+                .WithTags("Directory Records")
                 .RequireAuthorization("AdminOnly");
 
             group.MapPost("/insert", InsertDatabookRecord)
