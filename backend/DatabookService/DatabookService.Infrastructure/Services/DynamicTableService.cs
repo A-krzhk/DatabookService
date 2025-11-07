@@ -13,6 +13,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Xml.Linq;
+using DatabookService.Application.Interfaces.Services;
 
 namespace DatabookService.Infrastructure.Services;
 
