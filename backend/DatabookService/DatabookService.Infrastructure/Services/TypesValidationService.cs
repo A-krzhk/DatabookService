@@ -6,6 +6,8 @@ using DatabookService.Domain.Enums;
 using Microsoft.Extensions.Configuration;
 using Npgsql;
 using System.Text.Json;
+using System.Threading.Tasks;
+using System.Xml.Linq;
 
 namespace DatabookService.Infrastructure.Services
 {
@@ -59,6 +61,17 @@ namespace DatabookService.Infrastructure.Services
                     // Для Date возвращаем только дату, для Datetime - полную дату-время
                     return f.DataType == FieldDataType.Date ? dateValue.Date : dateValue;
                 }
+            }
+
+            if (f.DataType == FieldDataType.Enum)
+            {
+                if (value is JsonElement element)
+                {
+                    return element.ValueKind == JsonValueKind.String
+                        ? element.GetString()
+                        : element.GetRawText();
+                }
+                return value?.ToString();
             }
 
             return value;
@@ -125,6 +138,7 @@ namespace DatabookService.Infrastructure.Services
             var result = await command.ExecuteScalarAsync(cancellationToken);
             return result?.ToString();
         }
+
 
         public async Task<ValidationResult> ValidateFields(
             string tableName,
@@ -220,6 +234,33 @@ namespace DatabookService.Infrastructure.Services
             return ValidationResult.Ok();
         }
 
+        private bool ValidateEnumValue(DirectoryField field, object value)
+        {
+            if (value == null && !field.IsRequired)
+                return true;
+
+            string stringValue = GetStringValue(value);
+
+            // Проверяем, что значение есть в списке допустимых
+            if (!field.EnumValues.Contains(stringValue))
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        private string GetStringValue(object value)
+        {
+            if (value is JsonElement element)
+            {
+                return element.ValueKind == JsonValueKind.String
+                    ? element.GetString()
+                    : element.GetRawText();
+            }
+            return value?.ToString();
+        }
+
         private async Task<bool> IsTypeCorrect(
             DirectoryField field,
             object fieldValue,
@@ -246,7 +287,8 @@ namespace DatabookService.Infrastructure.Services
                                          DateTime.TryParse(element.GetString(), out _),
                     FieldDataType.Datetime => element.ValueKind == JsonValueKind.String &&
                                              DateTime.TryParse(element.GetString(), out _),
-                    _ => false
+                    FieldDataType.Enum => ValidateEnumValue(field, fieldValue),
+                    _ => false 
                 };
             }
 
@@ -260,6 +302,7 @@ namespace DatabookService.Infrastructure.Services
                 FieldDataType.Reference => await IsReferenceCorrect(field.ReferenceDirectoryType.TableName, fieldValue, cancellationToken),
                 FieldDataType.Date => fieldValue is DateTime,
                 FieldDataType.Datetime => fieldValue is DateTime,
+                FieldDataType.Enum => ValidateEnumValue(field, fieldValue),
                 _ => false
             };
         }

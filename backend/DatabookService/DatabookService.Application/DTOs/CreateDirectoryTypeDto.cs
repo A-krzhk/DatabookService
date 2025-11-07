@@ -14,5 +14,6 @@ public record CreateDirectoryFieldDto(
     bool IsRequired,
     int Order,
     bool IsCollection,
-    Guid? ReferenceDirectoryTypeId
+    Guid? ReferenceDirectoryTypeId,
+    List<string>? EnumValues = null
 );
