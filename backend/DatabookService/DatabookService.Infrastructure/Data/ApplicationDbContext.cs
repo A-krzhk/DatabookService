@@ -39,15 +39,11 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Description)
                 .HasMaxLength(1000);
             
-            entity.Property(e => e.CreatedAt)
-                .IsRequired();
-            
             entity.HasMany(e => e.Fields)
                 .WithOne(f => f.DirectoryType)
                 .HasForeignKey(f => f.DirectoryTypeId)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            entity.HasQueryFilter(e => !e.IsDeleted);
         });
 
         // DirectoryField configuration

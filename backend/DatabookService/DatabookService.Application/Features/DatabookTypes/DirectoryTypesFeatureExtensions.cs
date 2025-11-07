@@ -1,5 +1,6 @@
 using DatabookService.Application.Features.DatabookTypes.Create;
 using DatabookService.Application.Features.DatabookTypes.GetAll;
+using DatabookService.Application.Features.DatabookTypes.Update;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -15,7 +16,9 @@ public static class DirectoryTypesFeatureExtensions
         // Регистрация Commands и Queries
         services.AddScoped<CreateDirectoryTypeCommand>();
         services.AddScoped<GetAllDirectoryTypesQuery>();
-
+        services.AddScoped<AddFieldCommand>();
+        services.AddScoped<RemoveFieldCommand>();
+        services.AddScoped<UpdateFieldCommand>();
         return services;
     }
 
@@ -27,5 +30,14 @@ public static class DirectoryTypesFeatureExtensions
 
         var getAllEndpoint = new GetAllDirectoryTypesEndpoint();
         getAllEndpoint.MapEndpoint(app);
+        
+        var addFieldEndpoint = new AddFieldEndpoint();
+        addFieldEndpoint.MapEndpoint(app);
+
+        var removeFieldEndpoint = new RemoveFieldEndpoint();
+        removeFieldEndpoint.MapEndpoint(app);
+
+        var updateFieldEndpoint = new UpdateFieldEndpoint();
+        updateFieldEndpoint.MapEndpoint(app);
     }
 }

@@ -3,21 +3,15 @@ using DatabookService.Application.Interfaces;
 using DatabookService.Application.Interfaces.Services;
 using DatabookService.Domain.Entities;
 using DatabookService.Domain.Enums;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Npgsql;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Text.Json;
-using System.Threading.Tasks;
 
 namespace DatabookService.Infrastructure.Services
 {
     public class TypesValidationService : ITypesValidationService
     {
-        private readonly string _connectionString;
+        private readonly string? _connectionString;
 
         public TypesValidationService(IConfiguration configuration)
         {
@@ -112,14 +106,14 @@ namespace DatabookService.Infrastructure.Services
         {
             // PostgreSQL системный запрос для получения первичного ключа таблицы
             var sql = @"
-        SELECT column_name
-        FROM information_schema.key_column_usage
-        WHERE table_name = @table_name 
-          AND constraint_name IN (
-            SELECT constraint_name 
-            FROM information_schema.table_constraints 
-            WHERE table_name = @table_name 
-              AND constraint_type = 'PRIMARY KEY'
+                SELECT column_name
+                FROM information_schema.key_column_usage
+                WHERE table_name = @table_name 
+                  AND constraint_name IN (
+                    SELECT constraint_name 
+                    FROM information_schema.table_constraints 
+                    WHERE table_name = @table_name 
+                      AND constraint_type = 'PRIMARY KEY'
           )";
 
             await using var command = new NpgsqlCommand(sql, connection);
@@ -128,11 +122,6 @@ namespace DatabookService.Infrastructure.Services
             var result = await command.ExecuteScalarAsync(cancellationToken);
             return result?.ToString();
         }
-
-
-        /// <summary>
-        ///
-        /// </summary>
 
         public async Task<ValidationResult> ValidateFields(
             string tableName,
@@ -170,7 +159,7 @@ namespace DatabookService.Infrastructure.Services
 
         private bool IsEmptyCollection(object value)
         {
-            if (value == null)
+            if (value == null) 
                 return true;
 
             return value switch
@@ -234,7 +223,8 @@ namespace DatabookService.Infrastructure.Services
             CancellationToken cancellationToken = default)
         {
             //функция для проверки типов
-            if (field == null) return true;
+            if (field == null) 
+                return true;
 
             //Проверка для jsonElement
             if (fieldValue is JsonElement element)

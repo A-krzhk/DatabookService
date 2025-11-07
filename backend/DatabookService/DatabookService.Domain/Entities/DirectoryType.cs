@@ -6,10 +6,6 @@ public class DirectoryType
     public string Name { get; private set; }
     public string TableName { get; private set; }
     public string? Description { get; private set; }
-    public DateTime CreatedAt { get; private set; }
-    public DateTime? UpdatedAt { get; private set; }
-    public bool IsDeleted { get; private set; }
-    public DateTime? DeletedDate { get; private set; }
     
     private readonly List<DirectoryField> _fields = new();
     public IReadOnlyCollection<DirectoryField> Fields => _fields.AsReadOnly();
@@ -31,8 +27,6 @@ public class DirectoryType
         Name = name;
         TableName = tableName;
         Description = description;
-        CreatedAt = DateTime.UtcNow;
-        IsDeleted = false;
     }
 
     public void AddField(DirectoryField field)
@@ -47,13 +41,6 @@ public class DirectoryType
     {
         Name = name;
         Description = description;
-        UpdatedAt = DateTime.UtcNow;
-    }
-
-    public void SoftDelete()
-    {
-        IsDeleted = true;
-        DeletedDate = DateTime.UtcNow;
     }
 
     private static bool IsValidTableName(string tableName)
@@ -62,5 +49,19 @@ public class DirectoryType
             tableName, 
             @"^[a-zA-Z_][a-zA-Z0-9_]*$"
         );
+    }
+    
+    public void RemoveField(Guid fieldId)
+    {
+        var field = _fields.FirstOrDefault(f => f.Id == fieldId);
+        if (field == null)
+            throw new InvalidOperationException($"Field with ID '{fieldId}' not found");
+    
+        _fields.Remove(field);
+    }
+
+    public DirectoryField? GetField(Guid fieldId)
+    {
+        return _fields.FirstOrDefault(f => f.Id == fieldId);
     }
 }
