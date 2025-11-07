@@ -15,7 +15,8 @@ public class DirectoryField
     public int Order { get; private set; }
     
     public bool IsCollection { get; private set; }
-    
+    public List<string>? EnumValues { get; set; } = new List<string>();
+
     public DirectoryType DirectoryType { get; private set; } = null!;
     public DirectoryType? ReferenceDirectoryType { get; private set; }
 

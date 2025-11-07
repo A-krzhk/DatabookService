@@ -12,6 +12,7 @@ using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 
 namespace DatabookService.Infrastructure.Services
 {
@@ -28,6 +29,9 @@ namespace DatabookService.Infrastructure.Services
         public object ConvertJsonToCorrectType(DirectoryField f, object value)
         {
             var valueKind = ((JsonElement)value).ValueKind;
+
+            if (f.DataType == FieldDataType.String && valueKind == JsonValueKind.String)
+                return ((JsonElement)value).GetString(); 
 
             // Преобразуем строки в Guid для Reference полей
             if ((f.DataType == FieldDataType.Reference || f.DataType == FieldDataType.Identifier)
@@ -130,10 +134,6 @@ namespace DatabookService.Infrastructure.Services
         }
 
 
-        /// <summary>
-        ///
-        /// </summary>
-
         public async Task<ValidationResult> ValidateFields(
             string tableName,
             IReadOnlyCollection<DirectoryField> expectedFields,
@@ -228,6 +228,33 @@ namespace DatabookService.Infrastructure.Services
             return ValidationResult.Ok();
         }
 
+        private bool ValidateEnumValue(DirectoryField field, object value)
+        {
+            if (value == null && !field.IsRequired)
+                return true;
+
+            string stringValue = GetStringValue(value);
+
+            // Проверяем, что значение есть в списке допустимых
+            if (!field.EnumValues.Contains(stringValue))
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        private string GetStringValue(object value)
+        {
+            if (value is JsonElement element)
+            {
+                return element.ValueKind == JsonValueKind.String
+                    ? element.GetString()
+                    : element.GetRawText();
+            }
+            return value?.ToString();
+        }
+
         private async Task<bool> IsTypeCorrect(
             DirectoryField field,
             object fieldValue,
@@ -253,7 +280,8 @@ namespace DatabookService.Infrastructure.Services
                                          DateTime.TryParse(element.GetString(), out _),
                     FieldDataType.Datetime => element.ValueKind == JsonValueKind.String &&
                                              DateTime.TryParse(element.GetString(), out _),
-                    _ => false
+                    FieldDataType.Enum => ValidateEnumValue(field, fieldValue),
+                    _ => false 
                 };
             }
 

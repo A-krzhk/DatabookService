@@ -73,6 +73,11 @@ public class DynamicTableService : IDynamicTableService
             if (collectionField.DataType == FieldDataType.Reference && collectionField.ReferenceDirectoryType == null)
                 throw new InvalidOperationException(
                     $"Collection field '{collectionField.ColumnName}' must have a reference directory type.");
+            
+            //Коллекция не может состоять из Enum'ов
+            if (collectionField.DataType == FieldDataType.Enum)
+                throw new InvalidOperationException(
+                    $"Collection field can't consist of enums. ({collectionField.ColumnName})");
 
             var linkTableName = $"{directoryType.TableName}_{collectionField.ColumnName}";
 
@@ -124,6 +129,7 @@ public class DynamicTableService : IDynamicTableService
             FieldDataType.Reference => "UUID",
             FieldDataType.Date => "DATE",
             FieldDataType.Datetime => "TIMESTAMP",
+            FieldDataType.Enum => "VARCHAR(500)",
             _ => throw new ArgumentException($"Unknown data type: {field.DataType}")
         };
 
