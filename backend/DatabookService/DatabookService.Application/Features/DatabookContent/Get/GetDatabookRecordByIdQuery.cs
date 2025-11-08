@@ -11,15 +11,18 @@ public class GetDatabookRecordByIdQuery
 {
     private readonly IDirectoryTypeRepository _directoryTypeRepository;
     private readonly IDatabookContentService _databookContentService;
+    private readonly IChangesHistoryRecordService _changesHistoryService;
     private readonly ILogger<GetDatabookRecordByIdQuery> _logger;
 
     public GetDatabookRecordByIdQuery(
         IDirectoryTypeRepository directoryTypeRepository,
         IDatabookContentService databookContentService,
+        IChangesHistoryRecordService changesHistoryService,
         ILogger<GetDatabookRecordByIdQuery> logger)
     {
         _directoryTypeRepository = directoryTypeRepository;
         _databookContentService = databookContentService;
+        _changesHistoryService = changesHistoryService;
         _logger = logger;
     }
 
@@ -42,6 +45,13 @@ public class GetDatabookRecordByIdQuery
 
             if (record == null)
                 return Results.NotFound("Record not found");
+
+            await _changesHistoryService.LogRecordReadAsync(
+                       tableId,
+                       recordId,
+                       directoryType.TableName,
+                       record,
+                       cancellationToken);
 
             // Создаем метаданные колонок
             var columns = directoryType.Fields.Select(f => new ColumnMetadataResponse(

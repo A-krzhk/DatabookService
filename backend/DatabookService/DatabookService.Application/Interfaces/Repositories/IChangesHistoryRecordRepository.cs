@@ -1,4 +1,5 @@
-﻿using DatabookService.Domain.Entities;
+﻿using DatabookService.Application.DTOs.GetHistoryRecords;
+using DatabookService.Domain.Entities;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -20,10 +21,11 @@ namespace DatabookService.Application.Interfaces.Repositories
             Guid directoryTypeId,
             CancellationToken cancellationToken = default);
 
-        Task<List<ChangesHistoryRecord>> GetByDirectoryTypeWithPaginationAsync(
+        Task<HistoryQueryResult> GetByDirectoryTypeWithPaginationAsync(
             Guid directoryTypeId,
-            int page = 1,
-            int pageSize = 20,
+            int pageNumber,
+            int pageSize,
+            Guid? recordId = null,
             CancellationToken cancellationToken = default);
     }
 }

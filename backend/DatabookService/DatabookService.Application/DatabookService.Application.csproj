@@ -18,8 +18,4 @@
       <ProjectReference Include="..\DatabookService.Domain\DatabookService.Domain.csproj" />
     </ItemGroup>
 
-    <ItemGroup>
-      <Folder Include="Features\ChangesHistoryRecord\" />
-    </ItemGroup>
-
 </Project>

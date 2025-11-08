@@ -1,4 +1,5 @@
 using DatabookService.Application.Features.ApiKeys;
+using DatabookService.Application.Features.ChangesHistoryRecord;
 using DatabookService.Application.Features.DatabookContent;
 using DatabookService.Application.Features.DatabookTypes;
 using DatabookService.Application.Interfaces;
@@ -25,8 +26,11 @@ try
     var builder = WebApplication.CreateBuilder(args);
 
     builder.Services.AddEndpoints(typeof(Program).Assembly);
+
     builder.Services.AddDirectoryTypesFeature(); 
     builder.Services.AddDatabooksContentFeature();
+    builder.Services.AddChangesHistoryFeature();
+
     builder.Services.AddApiKeysFeature();
     builder.Services.AddHttpContextAccessor(); //Для получения HttpContext в сервисах
 
@@ -170,6 +174,7 @@ try
 
     app.MapDirectoryTypesFeature();
     app.MapDatabooksContentFeature();
+    app.MapChangesHistoryFeature();
     app.MapApiKeysFeature();
 
     app.Run();

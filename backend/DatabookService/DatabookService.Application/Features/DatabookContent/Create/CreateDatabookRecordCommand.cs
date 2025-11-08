@@ -42,7 +42,7 @@ public class CreateDatabookRecordCommand
         // Получаем directoryType
         var directoryType = await _directoryTypeRepository.GetByIdAsync(recordDto.TableId);
         if (directoryType == null)
-            throw new ArgumentException("Table with such id is not found.");
+            return Results.NotFound("Table with such id is not found.");
 
         _logger.LogInformation($"Inserting data in table '{directoryType.TableName}'");
 

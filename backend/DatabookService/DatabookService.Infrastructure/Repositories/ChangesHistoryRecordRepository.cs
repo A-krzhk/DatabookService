@@ -1,4 +1,5 @@
-﻿using DatabookService.Application.Interfaces.Repositories;
+﻿using DatabookService.Application.DTOs.GetHistoryRecords;
+using DatabookService.Application.Interfaces.Repositories;
 using DatabookService.Domain.Entities;
 using DatabookService.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
@@ -47,18 +48,35 @@ namespace DatabookService.Infrastructure.Repositories
                             .ToListAsync(cancellationToken);
         }
 
-        public async Task<List<ChangesHistoryRecord>> GetByDirectoryTypeWithPaginationAsync(
+        public async Task<HistoryQueryResult> GetByDirectoryTypeWithPaginationAsync(
             Guid directoryTypeId,
-            int page = 1,
-            int pageSize = 20,
+            int pageNumber,
+            int pageSize,
+            Guid? recordId = null,
             CancellationToken cancellationToken = default)
         {
-            return await _context.ChangesHistoryRecords.Where(chr => chr.DirectoryTypeId == directoryTypeId)
-                                .OrderByDescending(chr => chr.ChangedAt)
-                                .Skip((page - 1) * pageSize)
-                                .Take(pageSize)
-                                .AsNoTracking()
-                                .ToListAsync(cancellationToken);
+            var query = _context.ChangesHistoryRecords
+                .Where(chr => chr.DirectoryTypeId == directoryTypeId);
+
+            if (recordId.HasValue)
+            {
+                query = query.Where(chr => chr.RecordId == recordId.Value);
+            }
+
+            var totalCount = await query.CountAsync(cancellationToken);
+
+            var records = await query
+                .OrderByDescending(chr => chr.ChangedAt)
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .AsNoTracking()
+                .ToListAsync(cancellationToken);
+
+            return new HistoryQueryResult
+            {
+                Records = records,
+                TotalCount = totalCount
+            };
         }
     }
 }

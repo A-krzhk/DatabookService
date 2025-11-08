@@ -6,6 +6,7 @@ using DatabookService.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Npgsql;
+using System.Text.Json;
 
 namespace DatabookService.Infrastructure.Repositories;
 
@@ -168,11 +169,62 @@ public class DirectoryContentRepository : IDirectoryContentRepository
                 }
             }
 
+            //добавляем коллекции к результату (если есть в таблице)
+            await AddCollectionsToResult(directoryType, recordId, result, cancellationToken);
+
             return result;
         }
 
         throw new ArgumentException($"Record with ID {recordId} not found");
     }
+
+    private async Task AddCollectionsToResult(
+    DirectoryType directoryType,
+    Guid recordId,
+    Dictionary<string, object> result,
+    CancellationToken cancellationToken = default)
+    {
+        var collectionFields = directoryType.Fields.Where(f => f.IsCollection);
+
+        foreach (var field in collectionFields)
+        {
+            var collectionValues = await GetCollectionValuesAsync(
+                directoryType.TableName,
+                recordId,
+                field,
+                cancellationToken);
+
+            // Сохраняем коллекцию как JSON массив
+            result[field.ColumnName] = JsonSerializer.Serialize(collectionValues);
+        }
+    }
+
+    private async Task<List<object>> GetCollectionValuesAsync(
+    string mainTableName,
+    Guid recordId,
+    DirectoryField field,
+    CancellationToken cancellationToken = default)
+    {
+        var collectionTableName = $"{mainTableName}_{field.ColumnName}";
+
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+
+        var sql = $@"SELECT ""Value"" FROM ""{collectionTableName}"" WHERE ""IdRecord"" = @recordId ORDER BY ""SortOrder""";
+
+        await using var command = new NpgsqlCommand(sql, connection);
+        command.Parameters.AddWithValue("@recordId", recordId);
+
+        var values = new List<object>();
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            var value = reader["Value"];
+            values.Add(value == DBNull.Value ? null : value);
+        }
+
+        return values;
     }
 
     public async Task<List<Dictionary<string, object>>> GetAllRecordsAsync(
@@ -241,7 +293,6 @@ public class DirectoryContentRepository : IDirectoryContentRepository
 
         return result;
     }
-
 
     public async Task<Dictionary<string, object>?> GetRecordByIdAsync(
         string tableName,

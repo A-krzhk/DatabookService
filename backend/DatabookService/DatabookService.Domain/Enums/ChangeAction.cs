@@ -10,6 +10,7 @@ namespace DatabookService.Domain.Enums
     {
         Create = 1,
         Update = 2,
-        Delete = 3
+        Delete = 3,
+        Read = 4
     }
 }

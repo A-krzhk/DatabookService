@@ -1,4 +1,7 @@
-﻿using DatabookService.Application.Interfaces.Repositories;
+﻿using DatabookService.Application.DTOs;
+using DatabookService.Application.DTOs.GetDatabookRecords;
+using DatabookService.Application.DTOs.GetHistoryRecords;
+using DatabookService.Application.Interfaces.Repositories;
 using DatabookService.Application.Interfaces.Services;
 using DatabookService.Domain.Entities;
 using DatabookService.Domain.Enums;
@@ -22,6 +25,34 @@ namespace DatabookService.Infrastructure.Services
         { 
             _historyRepository = historyRepository;
             _httpContextAccessor = httpContextAccessor;
+        }
+
+        public async Task LogRecordReadAsync(
+            Guid directoryTypeId,
+            Guid recordId,
+            string tableName,
+            Dictionary<string, object> fieldValues,
+            CancellationToken cancellationToken = default)
+        {
+            foreach (var value in fieldValues)
+            {
+                var historyRecord = new ChangesHistoryRecord
+                {
+                    Id = Guid.NewGuid(),
+                    Name = $"{tableName}_{recordId}_hist_read",
+                    DirectoryTypeId = directoryTypeId,
+                    RecordId = recordId,
+                    TableName = tableName,
+                    Action = ChangeAction.Read,
+                    FieldName = value.Key,
+                    OldValue = value.Value?.ToString(),
+                    NewValue = null,
+                    ChangedBy = GetCurrentUserName(),
+                    ChangedAt = DateTime.UtcNow
+                };
+
+                await _historyRepository.AddAsync(historyRecord, cancellationToken);
+            }
         }
 
         public async Task LogRecordCreationAsync(
@@ -146,6 +177,44 @@ namespace DatabookService.Infrastructure.Services
             }
 
             return changes;
+        }
+
+        public async Task<HistoryResponse> GetHistoryByDirectoryTypeAsync(
+            Guid directoryTypeId,
+            HistoryPaginationRequest request,
+            CancellationToken cancellationToken = default)
+        {
+            var result = await _historyRepository.GetByDirectoryTypeWithPaginationAsync(
+                directoryTypeId,
+                request.PageNumber,
+                request.PageSize,
+                request.RecordId,
+                cancellationToken);
+
+            var dtos = result.Records.Select(r => new ChangesHistoryRecordDto(
+                r.Id,
+                r.Name,
+                r.DirectoryTypeId,
+                r.RecordId,
+                r.TableName,
+                (int)r.Action,
+                r.FieldName,
+                r.OldValue,
+                r.NewValue,
+                r.ChangedBy,
+                r.ChangedAt
+            )).ToList();
+
+            var pagination = new PaginationResponse(
+                PageNumber: request.PageNumber,
+                PageSize: request.PageSize,
+                TotalCount: result.TotalCount,
+                TotalPages: (int)Math.Ceiling(result.TotalCount / (double)request.PageSize),
+                HasPrevious: request.PageNumber > 1,
+                HasNext: request.PageNumber < (int)Math.Ceiling(result.TotalCount / (double)request.PageSize)
+            );
+
+            return new HistoryResponse(dtos, pagination);
         }
     }
 }
