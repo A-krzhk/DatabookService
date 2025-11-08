@@ -29,6 +29,21 @@ namespace DatabookService.Application.Interfaces.Services
             CancellationToken cancellationToken = default);
         
         Task<int> GetTotalCountAsync(string tableName, CancellationToken cancellationToken = default);
+        
+        Task<List<Dictionary<string, object>>> GetAllDeletedRecordsAsync(
+            string tableName,
+            IReadOnlyCollection<DirectoryField> fields,
+            int? pageNumber = null,
+            int? pageSize = null,
+            CancellationToken cancellationToken = default);
 
+        Task<int> GetTotalDeletedCountAsync(
+            string tableName,
+            CancellationToken cancellationToken = default);
+
+        Task<bool> RestoreRecordAsync(
+            string tableName,
+            Guid recordId,
+            CancellationToken cancellationToken = default);
     }
 }

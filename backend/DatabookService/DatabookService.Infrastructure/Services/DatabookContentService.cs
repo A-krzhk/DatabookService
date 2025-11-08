@@ -294,5 +294,141 @@ public class DatabookContentService : IDatabookContentService
         var result = await countCommand.ExecuteScalarAsync(cancellationToken);
         return Convert.ToInt32(result);
     }
+
+    public async Task<List<Dictionary<string, object>>> GetAllDeletedRecordsAsync(
+        string tableName,
+        IReadOnlyCollection<DirectoryField> fields,
+        int? pageNumber = null,
+        int? pageSize = null,
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+
+        var regularFields = fields.Where(f => !f.IsCollection).ToList();
+        var collectionFields = fields.Where(f => f.IsCollection).ToList();
+
+        // Формируем список колонок
+        var columns = new List<string> { "\"Id\"", "\"CreatedAt\"", "\"UpdatedAt\"", "\"DeletedDate\"" };
+        if (regularFields.Any())
+        {
+            columns.AddRange(regularFields.Select(f => $"\"{f.ColumnName}\""));
+        }
+
+        var columnNames = string.Join(", ", columns);
+        var sql = $@"SELECT {columnNames} 
+                        FROM ""{tableName}"" 
+                        WHERE ""IsDeleted"" = TRUE
+                        ORDER BY ""DeletedDate"" DESC";
+
+        // Добавляем пагинацию
+        if (pageNumber.HasValue && pageSize.HasValue)
+        {
+            var offset = (pageNumber.Value - 1) * pageSize.Value;
+            sql += $" LIMIT {pageSize.Value} OFFSET {offset}";
+        }
+
+        var result = new List<Dictionary<string, object>>();
+
+        await using (var command = new NpgsqlCommand(sql, connection))
+        await using (var reader = await command.ExecuteReaderAsync(cancellationToken))
+        {
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                var row = new Dictionary<string, object>();
+
+                // Читаем служебные поля
+                row["Id"] = reader.GetValue(reader.GetOrdinal("Id"));
+                row["CreatedAt"] = reader.GetValue(reader.GetOrdinal("CreatedAt"));
+                row["UpdatedAt"] = reader.IsDBNull(reader.GetOrdinal("UpdatedAt"))
+                    ? null!
+                    : reader.GetValue(reader.GetOrdinal("UpdatedAt"));
+                row["DeletedDate"] = reader.IsDBNull(reader.GetOrdinal("DeletedDate"))
+                    ? null!
+                    : reader.GetValue(reader.GetOrdinal("DeletedDate"));
+
+                // Читаем обычные поля
+                foreach (var field in regularFields)
+                {
+                    var ordinal = reader.GetOrdinal(field.ColumnName);
+                    row[field.ColumnName] = reader.IsDBNull(ordinal) ? null! : reader.GetValue(ordinal);
+                }
+
+                result.Add(row);
+            }
+        }
+
+        // Подгружаем коллекционные поля
+        foreach (var record in result)
+        {
+            var id = (Guid)record["Id"];
+            foreach (var field in collectionFields)
+            {
+                var collectionTableName = $"{tableName}_{field.ColumnName}";
+                var valueColumnName = field.DataType == FieldDataType.Reference
+                    ? $"{field.ReferenceDirectoryType.TableName}Id"
+                    : "Value";
+
+                var sqlCollection = $@"SELECT ""{valueColumnName}"" 
+                                          FROM ""{collectionTableName}""
+                                          WHERE ""IdRecord"" = @id 
+                                          ORDER BY ""SortOrder""";
+
+                await using var commandCollection = new NpgsqlCommand(sqlCollection, connection);
+                commandCollection.Parameters.AddWithValue("@id", id);
+
+                var values = new List<object>();
+                await using var readerCollection = await commandCollection.ExecuteReaderAsync(cancellationToken);
+                while (await readerCollection.ReadAsync(cancellationToken))
+                {
+                    values.Add(readerCollection.IsDBNull(0) ? null! : readerCollection.GetValue(0));
+                }
+
+                await readerCollection.CloseAsync();
+                record[field.ColumnName] = values;
+            }
+        }
+
+        return result;
+    }
+
+    public async Task<int> GetTotalDeletedCountAsync(
+        string tableName,
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+
+        var sql = $@"SELECT COUNT(*) 
+                        FROM ""{tableName}"" 
+                        WHERE ""IsDeleted"" = TRUE";
+
+        await using var command = new NpgsqlCommand(sql, connection);
+        var result = await command.ExecuteScalarAsync(cancellationToken);
+        return Convert.ToInt32(result);
+    }
+
+
+    public async Task<bool> RestoreRecordAsync(
+        string tableName,
+        Guid recordId,
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+
+        var sql = $@"UPDATE ""{tableName}""
+                        SET ""IsDeleted"" = FALSE,
+                            ""DeletedDate"" = NULL,
+                            ""UpdatedAt"" = NOW()
+                        WHERE ""Id"" = @id 
+                        AND ""IsDeleted"" = TRUE";
+
+        await using var command = new NpgsqlCommand(sql, connection);
+        command.Parameters.AddWithValue("@id", recordId);
+
+        var affectedRows = await command.ExecuteNonQueryAsync(cancellationToken);
+        return affectedRows > 0;
+    }
 }
 

@@ -65,7 +65,7 @@ public class DirectoryContentRepository : IDirectoryContentRepository
         foreach (var dt in directoryTypes)
         {
             var sql = $@"SELECT ""Id"" FROM ""{dt.TableName}""
-                         WHERE ""IsDeleted"" = TRUE AND ""DeletedAt"" < @threshold";
+                         WHERE ""IsDeleted"" = TRUE AND ""DeletedDate"" < @threshold";
 
             await using var command = new NpgsqlCommand(sql, connection);
             command.Parameters.AddWithValue("@threshold", threshold);
