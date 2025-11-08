@@ -1,7 +1,6 @@
 using DatabookService.Application.Interfaces;
 using DatabookService.Application.Interfaces.Services;
 using DatabookService.Domain.Entities;
-using DatabookService.Domain.Enums;
 using Microsoft.Extensions.Logging;
 using System.Globalization;
 using System.Text;
