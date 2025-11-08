@@ -1,24 +1,29 @@
-using DatabookService.Application.DTOs;
+﻿using DatabookService.Application.Features.DatabookTypes.Create;
 using DatabookService.Application.Interfaces;
 using DatabookService.Application.Interfaces.Services;
+using DatabookService.Application.Interfaces.Repositories;
 using DatabookService.Domain.Entities;
 using DatabookService.Domain.Enums;
 using Microsoft.Extensions.Logging;
+using DatabookService.Application.DTOs;
 
 namespace DatabookService.Application.Features.DatabookTypes.Create;
 
 public class CreateDirectoryTypeCommand
 {
     private readonly IDirectoryTypeRepository _repository;
+    private readonly IDirectoryGroupRepository _groupRepository;
     private readonly IDynamicTableService _dynamicTableService;
     private readonly ILogger<CreateDirectoryTypeCommand> _logger;
 
     public CreateDirectoryTypeCommand(
         IDirectoryTypeRepository repository,
+        IDirectoryGroupRepository groupRepository,
         IDynamicTableService dynamicTableService,
         ILogger<CreateDirectoryTypeCommand> logger)
     {
         _repository = repository;
+        _groupRepository = groupRepository;
         _dynamicTableService = dynamicTableService;
         _logger = logger;
     }
@@ -28,14 +33,25 @@ public class CreateDirectoryTypeCommand
         CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("Creating Databook Directory Type");
+
+        DirectoryGroup? group = null;
+        if (dto.DirectoryGroupId.HasValue)
+        {
+            group = await _groupRepository.GetByIdAsync(dto.DirectoryGroupId.Value, cancellationToken);
+            if (group == null)
+            {
+                throw new InvalidOperationException($"Directory group with ID '{dto.DirectoryGroupId}' not found");
+            }
+        }
+
         // Проверка существования таблицы
         if (await _repository.TableNameExistsAsync(dto.TableName, cancellationToken))
         {
             throw new InvalidOperationException($"Directory type with table name '{dto.TableName}' already exists");
         }
 
-        // Создание доменной сущности
-        var directoryType = new DirectoryType(dto.Name, dto.TableName, dto.Description);
+        // Создание доменной сущности, передаём необязательный DirectoryGroupId (может быть null)
+        var directoryType = new DirectoryType(dto.Name, dto.TableName, dto.Description, dto.DirectoryGroupId);
 
         // Добавление полей
         foreach (var fieldDto in dto.Fields.OrderBy(f => f.Order))
@@ -78,17 +94,15 @@ public class CreateDirectoryTypeCommand
             if (fieldDto.DataType == (int)FieldDataType.Reference && fieldDto.ReferenceDirectoryTypeId.HasValue)
             {
                 var referenceType = await _repository.GetByIdAsync(
-                    fieldDto.ReferenceDirectoryTypeId.Value, 
+                    fieldDto.ReferenceDirectoryTypeId.Value,
                     cancellationToken);
-                
+
                 if (referenceType == null)
                 {
                     throw new InvalidOperationException(
                         $"Reference directory type with ID '{fieldDto.ReferenceDirectoryTypeId}' not found");
                 }
             }
-
-
 
             var field = new DirectoryField(
                 directoryType.Id,
@@ -122,6 +136,7 @@ public class CreateDirectoryTypeCommand
             directoryType.Name,
             directoryType.TableName,
             directoryType.Description,
+            directoryType.DirectoryGroup?.Name,
             directoryType.Fields.Select(f => new DirectoryFieldDto(
                 f.Id,
                 f.Name,
@@ -133,7 +148,7 @@ public class CreateDirectoryTypeCommand
                 f.ReferenceDirectoryTypeId,
                 f.ReferenceDirectoryType?.Name,
                 null // CollectionData не загружается при создании
-            )).ToList()
+            )).ToList()            
         );
     }
 }

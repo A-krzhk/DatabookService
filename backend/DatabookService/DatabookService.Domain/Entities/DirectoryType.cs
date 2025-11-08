@@ -1,4 +1,4 @@
-namespace DatabookService.Domain.Entities;
+﻿namespace DatabookService.Domain.Entities;
 
 public class DirectoryType
 {
@@ -6,20 +6,22 @@ public class DirectoryType
     public string Name { get; private set; }
     public string TableName { get; private set; }
     public string? Description { get; private set; }
-    
+    public Guid DirectoryGroupId { get; private set; }
+    public DirectoryGroup? DirectoryGroup { get; private set; }
+
     private readonly List<DirectoryField> _fields = new();
     public IReadOnlyCollection<DirectoryField> Fields => _fields.AsReadOnly();
 
     private DirectoryType() { } // EF Core
 
-    public DirectoryType(string name, string tableName, string? description = null)
+    public DirectoryType(string name, string tableName, string? description = null, Guid? directoryGroupId = null)
     {
         if (string.IsNullOrWhiteSpace(name))
             throw new ArgumentException("Name cannot be empty", nameof(name));
-        
+
         if (string.IsNullOrWhiteSpace(tableName))
             throw new ArgumentException("Table name cannot be empty", nameof(tableName));
-        
+
         if (!IsValidTableName(tableName))
             throw new ArgumentException("Invalid table name format", nameof(tableName));
 
@@ -27,6 +29,9 @@ public class DirectoryType
         Name = name;
         TableName = tableName;
         Description = description;
+
+        // If no group specified, use stable default group id so we don't break old code/data
+        DirectoryGroupId = directoryGroupId ?? DirectoryGroup.DefaultId;
     }
 
     public void AddField(DirectoryField field)
@@ -63,5 +68,10 @@ public class DirectoryType
     public DirectoryField? GetField(Guid fieldId)
     {
         return _fields.FirstOrDefault(f => f.Id == fieldId);
+    }
+
+    public void SetGroup(Guid directoryGroupId)
+    {
+        DirectoryGroupId = directoryGroupId;
     }
 }

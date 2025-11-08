@@ -25,4 +25,5 @@ public class DirectoryGroup
 
     public static DirectoryGroup Default =>
         new DirectoryGroup("Без группы");
+    public static readonly Guid DefaultId = Guid.Parse("11111111-1111-1111-1111-111111111111");
 }

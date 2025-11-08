@@ -2,16 +2,16 @@
 using DatabookService.Application.Interfaces.Repositories;
 using Microsoft.Extensions.Logging;
 
-namespace DatabookService.Application.Features.DirectoryGroups.GetAll;
+namespace DatabookService.Application.Features.DirectoryGroups.Get;
 
-public class GetAllDirectoryGroupsCommand
+public class GetAllDirectoryGroupsQuery
 {
     private readonly IDirectoryGroupRepository _repository;
-    private readonly ILogger<GetAllDirectoryGroupsCommand> _logger;
+    private readonly ILogger<GetAllDirectoryGroupsQuery> _logger;
 
-    public GetAllDirectoryGroupsCommand(
+    public GetAllDirectoryGroupsQuery(
         IDirectoryGroupRepository repository,
-        ILogger<GetAllDirectoryGroupsCommand> logger)
+        ILogger<GetAllDirectoryGroupsQuery> logger)
     {
         _repository = repository;
         _logger = logger;

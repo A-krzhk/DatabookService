@@ -1,4 +1,4 @@
-using DatabookService.Domain.Entities;
+﻿using DatabookService.Domain.Entities;
 using DatabookService.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 
@@ -13,6 +13,7 @@ public class ApplicationDbContext : DbContext
 
     public DbSet<DirectoryType> DirectoryTypes => Set<DirectoryType>();
     public DbSet<DirectoryField> DirectoryFields => Set<DirectoryField>();
+    public DbSet<DirectoryGroup> DirectoryGroups => Set<DirectoryGroup>();
     public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -38,11 +39,19 @@ public class ApplicationDbContext : DbContext
             
             entity.Property(e => e.Description)
                 .HasMaxLength(1000);
-            
+
+            entity.Property(e => e.DirectoryGroupId)
+                .IsRequired();
+
             entity.HasMany(e => e.Fields)
                 .WithOne(f => f.DirectoryType)
                 .HasForeignKey(f => f.DirectoryTypeId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.DirectoryGroup)
+                .WithMany()
+                .HasForeignKey(e => e.DirectoryGroupId)
+                .OnDelete(DeleteBehavior.Restrict);
 
         });
 
@@ -74,6 +83,19 @@ public class ApplicationDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(e => e.ReferenceDirectoryTypeId)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+        // DirectoryGroup configuration
+        modelBuilder.Entity<DirectoryGroup>(entity =>
+        {
+            entity.ToTable("DirectoryGroups");
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Name)
+                .IsRequired()
+                .HasMaxLength(200);
+
+            // Seed stable default group so existing rows can point to it
+            entity.HasData(new { Id = DirectoryGroup.DefaultId, Name = "Без группы" });
         });
 
         // ApiKey configuration

@@ -1,6 +1,7 @@
-using DatabookService.Application.Features.ApiKeys;
+﻿using DatabookService.Application.Features.ApiKeys;
 using DatabookService.Application.Features.DatabookContent;
 using DatabookService.Application.Features.DatabookTypes;
+using DatabookService.Application.Features.DirectoryGroups;
 using DatabookService.Application.Interfaces;
 using DatabookService.Application.Interfaces.Repositories;
 using DatabookService.Application.Interfaces.Services;
@@ -13,6 +14,7 @@ using DatabookService.Web.Middleware;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
 using Serilog.Exceptions;
+using System;
 using System.Globalization;
 
 Log.Logger = new LoggerConfiguration()
@@ -27,6 +29,7 @@ try
     builder.Services.AddEndpoints(typeof(Program).Assembly);
     builder.Services.AddDirectoryTypesFeature(); 
     builder.Services.AddDatabooksContentFeature();
+    builder.Services.AddDirectoryGroupsFeature();
     builder.Services.AddApiKeysFeature();
 
     // Add services to the container
@@ -72,6 +75,7 @@ try
     builder.Services.AddScoped<IDirectoryContentRepository, DirectoryContentRepository>();
     builder.Services.AddScoped<DatabookService.Application.Interfaces.Repositories.IApiKeyRepository, ApiKeyRepository>();
     builder.Services.AddScoped<DatabookService.Application.Interfaces.Repositories.IDirectoryCollectionRepository, DirectoryCollectionRepository>();
+    builder.Services.AddScoped<DatabookService.Application.Interfaces.Repositories.IDirectoryGroupRepository, DirectoryGroupRepository>();
 
     // Services
     builder.Services.AddScoped<IDynamicTableService, DynamicTableService>(sp =>
@@ -168,6 +172,7 @@ try
 
     app.MapDirectoryTypesFeature();
     app.MapDatabooksContentFeature();
+    app.MapDirectoryGroupsFeature();
     app.MapApiKeysFeature();
 
     app.Run();

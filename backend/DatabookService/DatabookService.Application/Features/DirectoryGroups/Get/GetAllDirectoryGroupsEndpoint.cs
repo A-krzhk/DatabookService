@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
-namespace DatabookService.Application.Features.DirectoryGroups.GetAll;
+namespace DatabookService.Application.Features.DirectoryGroups.Get;
 
 public class GetAllDirectoryGroupsEndpoint : IEndpoint
 {
@@ -20,7 +20,7 @@ public class GetAllDirectoryGroupsEndpoint : IEndpoint
     }
 
     private static async Task<IResult> GetAllDirectoryGroups(
-        [FromServices] GetAllDirectoryGroupsCommand command,
+        [FromServices] GetAllDirectoryGroupsQuery command,
         CancellationToken cancellationToken)
     {
         var result = await command.ExecuteAsync(cancellationToken);
