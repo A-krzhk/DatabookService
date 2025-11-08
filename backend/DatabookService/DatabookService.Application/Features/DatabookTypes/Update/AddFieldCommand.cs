@@ -58,16 +58,44 @@ public class AddFieldCommand
             }
         }
 
+        var requestedDataType = (FieldDataType)dto.DataType;
+        if (requestedDataType == FieldDataType.Enum)
+        {
+            if (dto.EnumValues == null || !dto.EnumValues.Any())
+            {
+                throw new InvalidOperationException(
+                    $"Enum field '{dto.Name}' must have at least one value.");
+            }
+
+            if (dto.EnumValues.Any(string.IsNullOrWhiteSpace))
+            {
+                throw new InvalidOperationException(
+                    $"Enum field '{dto.Name}' contains empty values.");
+            }
+
+            if (dto.EnumValues.Distinct(StringComparer.OrdinalIgnoreCase).Count() != dto.EnumValues.Count)
+            {
+                throw new InvalidOperationException(
+                    $"Enum field '{dto.Name}' has duplicate values.");
+            }
+        }
+        else if (dto.EnumValues != null && dto.EnumValues.Any())
+        {
+            throw new InvalidOperationException(
+                $"Non-enum field '{dto.Name}' cannot provide EnumValues.");
+        }
+
         // Создаём новое поле
         var field = new DirectoryField(
             directoryTypeId,
             dto.Name,
             dto.ColumnName,
-            (FieldDataType)dto.DataType,
+            requestedDataType,
             dto.IsRequired,
             dto.Order,
             dto.IsCollection,
-            dto.ReferenceDirectoryTypeId
+            dto.ReferenceDirectoryTypeId,
+            dto.EnumValues
         );
 
         // ВАЖНО: Порядок операций:
@@ -93,6 +121,7 @@ public class AddFieldCommand
             field.IsCollection,
             field.ReferenceDirectoryTypeId,
             referenceType?.Name,
+            field.EnumValues,
             null
         );
     }

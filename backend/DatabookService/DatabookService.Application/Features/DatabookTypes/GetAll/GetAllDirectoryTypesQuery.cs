@@ -52,8 +52,8 @@ public class GetAllDirectoryTypesQuery
                     field.IsCollection,
                     field.ReferenceDirectoryTypeId,
                     field.ReferenceDirectoryType?.Name,
-                    collectionData,
-                    field.EnumValues
+                    field.EnumValues,
+                    collectionData
                 ));
             }
 
