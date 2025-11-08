@@ -20,7 +20,8 @@ public class ImportDatabookRecordsEndpoint : IEndpoint
             .Accepts<IFormFile>("multipart/form-data")
             .Produces<ImportResultDto>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status400BadRequest)
-            .DisableAntiforgery();
+            .DisableAntiforgery()
+            .ExcludeFromDescription();
     }
 
     private static async Task<IResult> ImportRecords(
