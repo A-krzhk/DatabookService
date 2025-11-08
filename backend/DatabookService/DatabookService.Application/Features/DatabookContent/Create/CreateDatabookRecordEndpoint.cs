@@ -15,7 +15,7 @@ namespace DatabookService.Application.Features.DatabookContent.Create
                 .WithTags("Directory Records")
                 .RequireAuthorization("AdminOnly");
 
-            group.MapPost("/insert", InsertDatabookRecord)
+            group.MapPost("/", InsertDatabookRecord)
                 .WithName("InsertDatabookRecord")
                 .Produces(StatusCodes.Status201Created)
                 .Produces(StatusCodes.Status400BadRequest);
