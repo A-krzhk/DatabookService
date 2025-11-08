@@ -11,17 +11,33 @@ namespace DatabookService.Infrastructure.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            // Сначала добавляем колонку как nullable
             migrationBuilder.AddColumn<Guid>(
                 name: "DirectoryGroupId",
                 table: "DirectoryTypes",
                 type: "uuid",
-                nullable: false,
-                defaultValue: new Guid("00000000-0000-0000-0000-000000000000"));
+                nullable: true); // Изменено на nullable
 
+            // Создаем группу по умолчанию
             migrationBuilder.InsertData(
                 table: "DirectoryGroups",
                 columns: new[] { "Id", "Name" },
                 values: new object[] { new Guid("11111111-1111-1111-1111-111111111111"), "Без группы" });
+
+            // Обновляем существующие записи в DirectoryTypes
+            migrationBuilder.Sql(@"
+        UPDATE ""DirectoryTypes"" 
+        SET ""DirectoryGroupId"" = '11111111-1111-1111-1111-111111111111'
+        WHERE ""DirectoryGroupId"" IS NULL
+    ");
+
+            // Теперь делаем колонку NOT NULL
+            migrationBuilder.AlterColumn<Guid>(
+                name: "DirectoryGroupId",
+                table: "DirectoryTypes",
+                type: "uuid",
+                nullable: false,
+                defaultValue: new Guid("11111111-1111-1111-1111-111111111111"));
 
             migrationBuilder.CreateIndex(
                 name: "IX_DirectoryTypes_DirectoryGroupId",
