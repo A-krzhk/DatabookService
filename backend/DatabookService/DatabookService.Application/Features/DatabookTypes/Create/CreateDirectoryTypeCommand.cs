@@ -1,3 +1,4 @@
+﻿using DatabookService.Application.DTOs;
 ﻿using DatabookService.Application.Features.DatabookTypes.Create;
 using DatabookService.Application.Interfaces;
 using DatabookService.Application.Interfaces.Services;
@@ -90,7 +91,7 @@ public class CreateDirectoryTypeCommand
                 }
             }
 
-            // Проверка существования ссылочного справочника
+             // Проверка существования ссылочного справочника
             if (fieldDto.DataType == (int)FieldDataType.Reference && fieldDto.ReferenceDirectoryTypeId.HasValue)
             {
                 var referenceType = await _repository.GetByIdAsync(
@@ -147,8 +148,10 @@ public class CreateDirectoryTypeCommand
                 f.IsCollection,
                 f.ReferenceDirectoryTypeId,
                 f.ReferenceDirectoryType?.Name,
+                f.EnumValues,
                 null // CollectionData не загружается при создании
-            )).ToList()            
+            )).ToList()
         );
     }
 }
+

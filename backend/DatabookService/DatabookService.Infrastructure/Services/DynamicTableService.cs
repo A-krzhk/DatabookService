@@ -178,20 +178,21 @@ public class DynamicTableService : IDynamicTableService
                 sb.AppendLine(
                     $"    \"{refTableName}Id\" UUID NOT NULL REFERENCES \"{refTableName}\"(\"Id\") ON DELETE CASCADE,");
             }
-            else
-            {
-                var valueColumnType = field.DataType switch
+                else
                 {
-                    FieldDataType.String => "VARCHAR(500)",
-                    FieldDataType.Number => "NUMERIC",
-                    FieldDataType.Checkbox => "BOOLEAN",
-                    FieldDataType.Identifier => "UUID",
-                    FieldDataType.Date => "DATE",
-                    FieldDataType.Datetime => "TIMESTAMP",
-                    _ => "TEXT"
-                };
-                sb.AppendLine($"    \"Value\" {valueColumnType} NOT NULL,");
-            }
+                    var valueColumnType = field.DataType switch
+                    {
+                        FieldDataType.String => "VARCHAR(500)",
+                        FieldDataType.Number => "NUMERIC",
+                        FieldDataType.Checkbox => "BOOLEAN",
+                        FieldDataType.Identifier => "UUID",
+                        FieldDataType.Date => "DATE",
+                        FieldDataType.Datetime => "TIMESTAMP",
+                        FieldDataType.Enum => "VARCHAR(500)",
+                        _ => "TEXT"
+                    };
+                    sb.AppendLine($"    \"Value\" {valueColumnType} NOT NULL,");
+                }
 
             sb.AppendLine("    \"SortOrder\" INTEGER NOT NULL DEFAULT 0");
             sb.AppendLine(");");

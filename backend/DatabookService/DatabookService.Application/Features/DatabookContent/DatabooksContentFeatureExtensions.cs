@@ -11,6 +11,12 @@ using System.Threading.Tasks;
 using DatabookService.Application.Features.DatabookContent.Delete;
 using DatabookService.Application.Features.DatabookContent.Delete.BackgroundJobs;
 using DatabookService.Application.Features.DatabookContent.Get;
+using DatabookService.Application.Features.DatabookContent.Restore;
+using DatabookService.Application.Features.DatabookContent.Copy;
+using DatabookService.Application.Features.DatabookContent.Update;
+using DatabookService.Application.Features.DatabookContent.Import;
+using DatabookService.Application.Features.DatabookContent.Export;
+using DatabookService.Application.Features.DatabookContent.Update;
 
 namespace DatabookService.Application.Features.DatabookContent
 {
@@ -23,7 +29,14 @@ namespace DatabookService.Application.Features.DatabookContent
             services.AddScoped<SoftDeleteDirectoryRecordCommand>();
             services.AddScoped<GetAllDatabookRecordsQuery>();
             services.AddScoped<GetDatabookRecordByIdQuery>();
+            services.AddScoped<GetAllDeletedDatabookRecordsQuery>();
+            services.AddScoped<RestoreDatabookRecordCommand>();
+            services.AddScoped<UpdateDatabookRecordCommand>();
+            services.AddScoped<ImportDatabookRecordsCommand>();
+            services.AddScoped<ExportDatabookRecordsCommand>();
             
+            services.AddScoped<CopyDatabookRecordCommand>();
+
             //Фоновые процессы
             services.AddHostedService<DirectoryRecordsCleanupService>();
             
@@ -41,6 +54,23 @@ namespace DatabookService.Application.Features.DatabookContent
             
             var getDatabookEndpoints = new GetDatabookEndpoints();
             getDatabookEndpoints.MapEndpoint(app);
+            
+            var getAllDeletedDatabookRecordsEndpoint = new GetAllDeletedDatabookRecordsEndpoint();
+            getAllDeletedDatabookRecordsEndpoint.MapEndpoint(app);
+            
+            var restoreDatabookRecordEndpoint = new RestoreDatabookRecordEndpoint();
+            restoreDatabookRecordEndpoint.MapEndpoint(app);
+
+            var updateDatabookRecordEndpoint = new UpdateDatabookRecordEndpoint();
+            updateDatabookRecordEndpoint.MapEndpoint(app);
+
+            var importDatabookRecordsEndpoint = new ImportDatabookRecordsEndpoint();
+            importDatabookRecordsEndpoint.MapEndpoint(app);
+
+            var exportDatabookRecordsEndpoint = new ExportDatabookRecordsEndpoint();
+            exportDatabookRecordsEndpoint.MapEndpoint(app);
+            var copyDatabookRecordEndpoint = new CopyDatabookRecordEndpoint();
+            copyDatabookRecordEndpoint.MapEndpoint(app);
         }
     }
 }

@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace DatabookService.Application.DTOs.UpdateDirectoryTypes;
 
 public record AddFieldDto(
@@ -7,5 +9,6 @@ public record AddFieldDto(
     bool IsRequired,
     int Order,
     bool IsCollection,
-    Guid? ReferenceDirectoryTypeId = null
+    Guid? ReferenceDirectoryTypeId = null,
+    List<string>? EnumValues = null
 );

@@ -1,3 +1,4 @@
+using DatabookService.Application.Interfaces;
 using DatabookService.Application.Interfaces.Repositories;
 using DatabookService.Domain.Entities;
 using DatabookService.Domain.Enums;
@@ -5,6 +6,7 @@ using DatabookService.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Npgsql;
+using System.Text.Json;
 
 namespace DatabookService.Infrastructure.Repositories;
 
@@ -12,11 +14,13 @@ public class DirectoryContentRepository : IDirectoryContentRepository
 {
     private readonly ApplicationDbContext _context;
     private readonly string _connectionString;
+    private readonly IDirectoryTypeRepository _directoryTypeRepository;
 
-    public DirectoryContentRepository(ApplicationDbContext context, IConfiguration configuration)
+    public DirectoryContentRepository(ApplicationDbContext context, IConfiguration configuration, IDirectoryTypeRepository directoryTypeRepository)
     {
         _context = context;
         _connectionString = configuration.GetConnectionString("DefaultConnection");
+        _directoryTypeRepository = directoryTypeRepository;
     }
     
     /// Помечает запись как удалённую (IsDeleted = true, DeletedAt = now)
@@ -61,7 +65,7 @@ public class DirectoryContentRepository : IDirectoryContentRepository
         foreach (var dt in directoryTypes)
         {
             var sql = $@"SELECT ""Id"" FROM ""{dt.TableName}""
-                         WHERE ""IsDeleted"" = TRUE AND ""DeletedAt"" < @threshold";
+                         WHERE ""IsDeleted"" = TRUE AND ""DeletedDate"" < @threshold";
 
             await using var command = new NpgsqlCommand(sql, connection);
             command.Parameters.AddWithValue("@threshold", threshold);
@@ -121,6 +125,105 @@ public class DirectoryContentRepository : IDirectoryContentRepository
             await transaction.RollbackAsync(cancellationToken);
             throw;
         }
+    }
+
+    //Метод для получения записи по её Id из табллицы с Id directoryTypeId (для записи истории удаления)
+    public async Task<Dictionary<string, object>> GetRecordByIdAsync(
+        Guid directoryTypeId,
+        Guid recordId,
+        CancellationToken cancellationToken = default)
+    {
+        var directoryType = await _directoryTypeRepository.GetByIdAsync(directoryTypeId, cancellationToken);
+        if (directoryType == null)
+            throw new ArgumentException("Directory type not found");
+
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+
+        var sql = $@"SELECT * FROM ""{directoryType.TableName}"" WHERE ""Id"" = @recordId";
+
+        await using var command = new NpgsqlCommand(sql, connection);
+        command.Parameters.AddWithValue("@recordId", recordId);
+
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+
+        if (await reader.ReadAsync(cancellationToken))
+        {
+            var result = new Dictionary<string, object>();
+
+            // Список системных полей для исключения
+            var systemFields = new List<string>
+            {
+                "Id", "IsDeleted", "CreatedAt", "DeletedAt", "UpdatedAt", "DeletedDate"
+            };
+
+            for (int i = 0; i < reader.FieldCount; i++)
+            {
+                var fieldName = reader.GetName(i);
+
+                // Если поле не системное - сохраняем
+                if (!systemFields.Contains(fieldName))
+                {
+                    var value = reader.GetValue(i);
+                    result[fieldName] = value == DBNull.Value ? null : value;
+                }
+            }
+
+            //добавляем коллекции к результату (если есть в таблице)
+            await AddCollectionsToResult(directoryType, recordId, result, cancellationToken);
+
+            return result;
+        }
+
+        throw new ArgumentException($"Record with ID {recordId} not found");
+    }
+
+    private async Task AddCollectionsToResult(
+        DirectoryType directoryType,
+        Guid recordId,
+        Dictionary<string, object> result,
+        CancellationToken cancellationToken = default)
+    {
+        var collectionFields = directoryType.Fields.Where(f => f.IsCollection);
+
+        foreach (var field in collectionFields)
+        {
+            var collectionString = await GetCollectionValuesAsStringAsync(
+                directoryType.TableName,
+                recordId,
+                field,
+                cancellationToken);
+
+            result[field.ColumnName] = collectionString;
+        }
+    }
+
+    private async Task<string> GetCollectionValuesAsStringAsync(
+        string mainTableName,
+        Guid recordId,
+        DirectoryField field,
+        CancellationToken cancellationToken = default)
+    {
+        var collectionTableName = $"{mainTableName}_{field.ColumnName}";
+
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+
+        var sql = $@"SELECT ""Value"" FROM ""{collectionTableName}"" WHERE ""IdRecord"" = @recordId ORDER BY ""SortOrder""";
+
+        await using var command = new NpgsqlCommand(sql, connection);
+        command.Parameters.AddWithValue("@recordId", recordId);
+
+        var values = new List<string>();
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            var value = reader["Value"];
+            values.Add(value == DBNull.Value ? string.Empty : value.ToString());
+        }
+
+        return string.Join(", ", values);
     }
 
     public async Task<List<Dictionary<string, object>>> GetAllRecordsAsync(
@@ -189,7 +292,6 @@ public class DirectoryContentRepository : IDirectoryContentRepository
 
         return result;
     }
-
 
     public async Task<Dictionary<string, object>?> GetRecordByIdAsync(
         string tableName,

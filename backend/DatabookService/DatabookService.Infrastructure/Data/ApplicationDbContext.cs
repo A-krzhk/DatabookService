@@ -13,6 +13,7 @@ public class ApplicationDbContext : DbContext
 
     public DbSet<DirectoryType> DirectoryTypes => Set<DirectoryType>();
     public DbSet<DirectoryField> DirectoryFields => Set<DirectoryField>();
+    public DbSet<ChangesHistoryRecord> ChangesHistoryRecords => Set<ChangesHistoryRecord>(); 
     public DbSet<DirectoryGroup> DirectoryGroups => Set<DirectoryGroup>();
     public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
 
@@ -96,6 +97,57 @@ public class ApplicationDbContext : DbContext
 
             // Seed stable default group so existing rows can point to it
             entity.HasData(new { Id = DirectoryGroup.DefaultId, Name = "Без группы" });
+        });
+
+        // ChangesHistoryRecords configuration
+        modelBuilder.Entity<ChangesHistoryRecord>(entity =>
+        {
+            entity.ToTable("ChangesHistoryRecord");
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Name)
+                .IsRequired()
+                .HasMaxLength(200);
+
+            entity.Property(e => e.DirectoryTypeId)
+                .IsRequired();
+
+            entity.Property(e => e.RecordId)
+                .IsRequired();
+
+            entity.Property(e => e.TableName)
+                .IsRequired()
+                .HasMaxLength(255);
+
+            entity.Property(e => e.Action)
+                .IsRequired()
+                .HasConversion<int>();
+
+            entity.Property(e => e.FieldName)
+                .HasMaxLength(100);
+
+            entity.Property(e => e.OldValue)
+                .HasColumnType("text") 
+                .IsRequired(false);
+
+            entity.Property(e => e.NewValue)
+                .HasColumnType("text") 
+                .IsRequired(false);
+
+            entity.Property(e => e.ChangedBy)
+                .IsRequired()
+                .HasMaxLength(100);
+
+            entity.Property(e => e.ChangedAt)
+                .IsRequired();
+
+            entity.HasOne(e => e.DirectoryType)
+               .WithMany() 
+               .HasForeignKey(e => e.DirectoryTypeId)
+               .OnDelete(DeleteBehavior.Cascade); 
+
+            entity.Property(e => e.ChangedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP");
         });
 
         // ApiKey configuration

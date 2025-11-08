@@ -1,4 +1,5 @@
-﻿using DatabookService.Application.Features.ApiKeys;
+using DatabookService.Application.Features.ApiKeys;
+using DatabookService.Application.Features.ChangesHistoryRecord;
 using DatabookService.Application.Features.DatabookContent;
 using DatabookService.Application.Features.DatabookTypes;
 using DatabookService.Application.Features.DirectoryGroups;
@@ -27,10 +28,14 @@ try
     var builder = WebApplication.CreateBuilder(args);
 
     builder.Services.AddEndpoints(typeof(Program).Assembly);
+
     builder.Services.AddDirectoryTypesFeature(); 
     builder.Services.AddDatabooksContentFeature();
+    builder.Services.AddChangesHistoryFeature();
+
     builder.Services.AddDirectoryGroupsFeature();
     builder.Services.AddApiKeysFeature();
+    builder.Services.AddHttpContextAccessor(); //Для получения HttpContext в сервисах
 
     // Add services to the container
     builder.Services.AddEndpointsApiExplorer();
@@ -75,6 +80,8 @@ try
     builder.Services.AddScoped<IDirectoryContentRepository, DirectoryContentRepository>();
     builder.Services.AddScoped<DatabookService.Application.Interfaces.Repositories.IApiKeyRepository, ApiKeyRepository>();
     builder.Services.AddScoped<DatabookService.Application.Interfaces.Repositories.IDirectoryCollectionRepository, DirectoryCollectionRepository>();
+    builder.Services.AddScoped<DatabookService.Application.Interfaces.Repositories.IChangesHistoryRecordRepository, ChangesHistoryRecordRepository>();
+    
     builder.Services.AddScoped<DatabookService.Application.Interfaces.Repositories.IDirectoryGroupRepository, DirectoryGroupRepository>();
 
     // Services
@@ -83,7 +90,7 @@ try
                                 sp.GetRequiredService<IConfiguration>()));
     builder.Services.AddScoped<ITypesValidationService, TypesValidationService>();
     builder.Services.AddScoped<IDatabookContentService, DatabookContentService>();
-
+    builder.Services.AddScoped<IChangesHistoryRecordService, ChangesHistoryRecordService>(); 
 
     // Security services
     builder.Services.AddSingleton<DatabookService.Application.Interfaces.Security.IApiKeyHasher, DatabookService.Infrastructure.Security.ApiKeyHasherPbkdf2>();
@@ -172,6 +179,7 @@ try
 
     app.MapDirectoryTypesFeature();
     app.MapDatabooksContentFeature();
+    app.MapChangesHistoryFeature();
     app.MapDirectoryGroupsFeature();
     app.MapApiKeysFeature();
 

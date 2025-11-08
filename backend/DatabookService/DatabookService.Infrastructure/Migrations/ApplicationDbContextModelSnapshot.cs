@@ -58,6 +58,58 @@ namespace DatabookService.Infrastructure.Migrations
                     b.ToTable("ApiKeys", (string)null);
                 });
 
+            modelBuilder.Entity("DatabookService.Domain.Entities.ChangesHistoryRecord", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Action")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("ChangedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<string>("ChangedBy")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<Guid>("DirectoryTypeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("FieldName")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("NewValue")
+                        .HasColumnType("text");
+
+                    b.Property<string>("OldValue")
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("RecordId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("TableName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DirectoryTypeId");
+
+                    b.ToTable("ChangesHistoryRecord", (string)null);
+                });
+
             modelBuilder.Entity("DatabookService.Domain.Entities.DirectoryField", b =>
                 {
                     b.Property<Guid>("Id")
@@ -158,6 +210,17 @@ namespace DatabookService.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("DirectoryTypes", (string)null);
+                });
+
+            modelBuilder.Entity("DatabookService.Domain.Entities.ChangesHistoryRecord", b =>
+                {
+                    b.HasOne("DatabookService.Domain.Entities.DirectoryType", "DirectoryType")
+                        .WithMany()
+                        .HasForeignKey("DirectoryTypeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("DirectoryType");
                 });
 
             modelBuilder.Entity("DatabookService.Domain.Entities.DirectoryField", b =>

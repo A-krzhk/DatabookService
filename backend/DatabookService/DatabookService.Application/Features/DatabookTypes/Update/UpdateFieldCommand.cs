@@ -65,6 +65,7 @@ public class UpdateFieldCommand
             field.IsCollection,
             field.ReferenceDirectoryTypeId,
             field.ReferenceDirectoryType?.Name,
+            field.EnumValues,
             null
         );
     }
