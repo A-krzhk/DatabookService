@@ -179,31 +179,30 @@ public class DirectoryContentRepository : IDirectoryContentRepository
     }
 
     private async Task AddCollectionsToResult(
-    DirectoryType directoryType,
-    Guid recordId,
-    Dictionary<string, object> result,
-    CancellationToken cancellationToken = default)
+        DirectoryType directoryType,
+        Guid recordId,
+        Dictionary<string, object> result,
+        CancellationToken cancellationToken = default)
     {
         var collectionFields = directoryType.Fields.Where(f => f.IsCollection);
 
         foreach (var field in collectionFields)
         {
-            var collectionValues = await GetCollectionValuesAsync(
+            var collectionString = await GetCollectionValuesAsStringAsync(
                 directoryType.TableName,
                 recordId,
                 field,
                 cancellationToken);
 
-            // Сохраняем коллекцию как JSON массив
-            result[field.ColumnName] = JsonSerializer.Serialize(collectionValues);
+            result[field.ColumnName] = collectionString;
         }
     }
 
-    private async Task<List<object>> GetCollectionValuesAsync(
-    string mainTableName,
-    Guid recordId,
-    DirectoryField field,
-    CancellationToken cancellationToken = default)
+    private async Task<string> GetCollectionValuesAsStringAsync(
+        string mainTableName,
+        Guid recordId,
+        DirectoryField field,
+        CancellationToken cancellationToken = default)
     {
         var collectionTableName = $"{mainTableName}_{field.ColumnName}";
 
@@ -215,16 +214,16 @@ public class DirectoryContentRepository : IDirectoryContentRepository
         await using var command = new NpgsqlCommand(sql, connection);
         command.Parameters.AddWithValue("@recordId", recordId);
 
-        var values = new List<object>();
+        var values = new List<string>();
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
 
         while (await reader.ReadAsync(cancellationToken))
         {
             var value = reader["Value"];
-            values.Add(value == DBNull.Value ? null : value);
+            values.Add(value == DBNull.Value ? string.Empty : value.ToString());
         }
 
-        return values;
+        return string.Join(", ", values);
     }
 
     public async Task<List<Dictionary<string, object>>> GetAllRecordsAsync(

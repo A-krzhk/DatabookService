@@ -17,6 +17,7 @@ namespace DatabookService.Application.Interfaces.Services
             CancellationToken cancellationToken = default);
 
         Task LogRecordCreationAsync(
+            bool isCopy,
             Guid directoryTypeId,
             Guid recordId,
             string tableName,
