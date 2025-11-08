@@ -137,6 +137,7 @@ public class CreateDirectoryTypeCommand
             directoryType.Name,
             directoryType.TableName,
             directoryType.Description,
+            directoryType.DirectoryGroupId,
             directoryType.DirectoryGroup?.Name,
             directoryType.Fields.Select(f => new DirectoryFieldDto(
                 f.Id,

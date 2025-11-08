@@ -24,6 +24,7 @@ export function DirectoryTypeBuilder({
   onCreated,
   onCancel,
   onRefreshTypes,
+  groups = [],
 }) {
   const [details, setDetails] = useState({
     name: '',
@@ -37,6 +38,7 @@ export function DirectoryTypeBuilder({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [fieldError, setFieldError] = useState('')
+  const [groupId, setGroupId] = useState('')
 
   const tableNameSuggestion = useMemo(() => {
     return details.name
@@ -169,6 +171,7 @@ export function DirectoryTypeBuilder({
       name: details.name.trim(),
       tableName: details.tableName.trim(),
       description: details.description?.trim() || null,
+      directoryGroupId: groupId || null,
       fields: fields.map((field, index) => ({
         ...field,
         order: index + 1,
@@ -300,23 +303,37 @@ export function DirectoryTypeBuilder({
                   placeholder="Например, Контрагенты"
                 />
               </label>
-              <label>
-                Имя таблицы
-                <input
-                  type="text"
-                  value={details.tableName}
-                  onChange={(event) =>
-                    setDetails((prev) => ({
-                      ...prev,
-                      tableName: event.target.value,
-                    }))
-                  }
-                  placeholder="contractors"
-                />
-              </label>
-              <label className="form-grid__full">
-                Описание
-                <textarea
+            <label>
+              Имя таблицы
+              <input
+                type="text"
+                value={details.tableName}
+                onChange={(event) =>
+                  setDetails((prev) => ({
+                    ...prev,
+                    tableName: event.target.value,
+                  }))
+                }
+                placeholder="contractors"
+              />
+            </label>
+            <label>
+              Группа
+              <select
+                value={groupId}
+                onChange={(event) => setGroupId(event.target.value)}
+              >
+                <option value="">Без группы</option>
+                {groups.map((group) => (
+                  <option key={group.id} value={group.id}>
+                    {group.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="form-grid__full">
+              Описание
+              <textarea
                   rows={3}
                   value={details.description}
                   onChange={(event) =>

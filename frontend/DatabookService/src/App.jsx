@@ -6,7 +6,9 @@ import { TypeFieldManager } from './components/TypeFieldManager'
 import { RecordsPanel } from './components/RecordsPanel'
 import { RecordDetail } from './components/RecordDetail'
 import { RecordForm } from './components/RecordForm'
+import { GroupModal } from './components/GroupModal'
 import { useDirectoryTypes } from './hooks/useDirectoryTypes'
+import { useDirectoryGroups } from './hooks/useDirectoryGroups'
 
 const VIEW = {
   PLACEHOLDER: 'placeholder',
@@ -32,6 +34,16 @@ function App() {
     canLoad,
     refetch,
   } = useDirectoryTypes(apiKey)
+  const {
+    groups,
+    loading: groupsLoading,
+    error: groupsError,
+    refresh: refreshGroups,
+    createGroup,
+  } = useDirectoryGroups(apiKey)
+  const [groupModalOpen, setGroupModalOpen] = useState(false)
+  const [groupModalLoading, setGroupModalLoading] = useState(false)
+  const [groupModalError, setGroupModalError] = useState('')
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -48,6 +60,45 @@ function App() {
   )
 
   const showSidebar = Boolean(apiKey)
+
+  const groupedTypes = useMemo(() => {
+    const map = new Map()
+    let hasUngrouped = false
+
+    directoryTypes.forEach((type) => {
+      const hasGroup = Boolean(type.directoryGroupId)
+      const groupId = hasGroup ? type.directoryGroupId : 'ungrouped'
+      const groupName = hasGroup
+        ? type.directoryGroupName ?? 'Без группы'
+        : 'Без группы'
+      if (!hasGroup) hasUngrouped = true
+      if (!map.has(groupId)) {
+        map.set(groupId, { id: groupId, name: groupName, types: [] })
+      }
+      map.get(groupId).types.push(type)
+    })
+
+    groups.forEach((group) => {
+      if (!map.has(group.id)) {
+        map.set(group.id, { id: group.id, name: group.name, types: [] })
+      }
+    })
+
+    if (!hasUngrouped && map.has('ungrouped')) {
+      map.delete('ungrouped')
+    } else if (hasUngrouped && !map.has('ungrouped')) {
+      map.set('ungrouped', { id: 'ungrouped', name: 'Без группы', types: [] })
+    }
+
+    return Array.from(map.values()).sort((a, b) =>
+      a.name.localeCompare(b.name, 'ru'),
+    )
+  }, [directoryTypes, groups])
+
+  const sidebarGroups = useMemo(
+    () => groupedTypes.filter((group) => group.types.length > 0),
+    [groupedTypes],
+  )
 
   const handleSelectType = (typeId) => {
     setActiveTypeId(typeId)
@@ -76,6 +127,26 @@ function App() {
     setView({ name: VIEW.RECORDS })
   }
 
+  const handleGroupModalSubmit = async (name) => {
+    const trimmed = name.trim()
+    if (!trimmed) {
+      setGroupModalError('Введите название группы')
+      return
+    }
+    try {
+      setGroupModalLoading(true)
+      setGroupModalError('')
+      await createGroup(trimmed)
+      await refreshGroups()
+      await refetch()
+      setGroupModalOpen(false)
+    } catch (err) {
+      setGroupModalError(err.message)
+    } finally {
+      setGroupModalLoading(false)
+    }
+  }
+
   const renderContent = () => {
     if (!apiKey) {
       return (
@@ -102,6 +173,8 @@ function App() {
             }}
             onCancel={backToRecords}
             onRefreshTypes={refetch}
+            groups={groups}
+            onGroupCreated={refreshGroups}
           />
         )
       case VIEW.MANAGE_TYPE:
@@ -215,10 +288,14 @@ function App() {
       <div className="app__body">
         {showSidebar && (
           <Sidebar
-            types={directoryTypes}
+            groupedTypes={sidebarGroups}
             selectedId={activeTypeId}
             onSelect={handleSelectType}
             onCreateType={handleCreateTypeStart}
+            onOpenGroupModal={() => {
+              setGroupModalOpen(true)
+              setGroupModalError('')
+            }}
             onManageType={handleManageType}
             loading={typesLoading}
             disabled={!canLoad}
@@ -226,6 +303,17 @@ function App() {
         )}
         <main className="content-area">{renderContent()}</main>
       </div>
+
+      <GroupModal
+        open={groupModalOpen}
+        loading={groupModalLoading}
+        error={groupModalError}
+        onClose={() => {
+          setGroupModalOpen(false)
+          setGroupModalError('')
+        }}
+        onSubmit={handleGroupModalSubmit}
+      />
     </div>
   )
 }

@@ -62,6 +62,7 @@ public class GetAllDirectoryTypesQuery
                 dt.Name,
                 dt.TableName,
                 dt.Description,
+                dt.DirectoryGroupId,
                 dt.DirectoryGroup?.Name,
                 fields
             ));

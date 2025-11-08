@@ -237,6 +237,7 @@ export function RecordDetail({
                         )}
                       </span>
                       <RecordFieldControl
+                        apiKey={apiKey}
                         field={field}
                         value={values[key]}
                         onChange={(nextValue) =>
