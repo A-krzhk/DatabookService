@@ -12,6 +12,10 @@ using DatabookService.Application.Features.DatabookContent.Delete;
 using DatabookService.Application.Features.DatabookContent.Delete.BackgroundJobs;
 using DatabookService.Application.Features.DatabookContent.Get;
 using DatabookService.Application.Features.DatabookContent.Restore;
+using DatabookService.Application.Features.DatabookContent.Update;
+using DatabookService.Application.Features.DatabookContent.Import;
+using DatabookService.Application.Features.DatabookContent.Export;
+using DatabookService.Application.Features.DatabookContent.Update;
 
 namespace DatabookService.Application.Features.DatabookContent
 {
@@ -26,6 +30,9 @@ namespace DatabookService.Application.Features.DatabookContent
             services.AddScoped<GetDatabookRecordByIdQuery>();
             services.AddScoped<GetAllDeletedDatabookRecordsQuery>();
             services.AddScoped<RestoreDatabookRecordCommand>();
+            services.AddScoped<UpdateDatabookRecordCommand>();
+            services.AddScoped<ImportDatabookRecordsCommand>();
+            services.AddScoped<ExportDatabookRecordsCommand>();
             
             //Фоновые процессы
             services.AddHostedService<DirectoryRecordsCleanupService>();
@@ -50,6 +57,15 @@ namespace DatabookService.Application.Features.DatabookContent
             
             var restoreDatabookRecordEndpoint = new RestoreDatabookRecordEndpoint();
             restoreDatabookRecordEndpoint.MapEndpoint(app);
+
+            var updateDatabookRecordEndpoint = new UpdateDatabookRecordEndpoint();
+            updateDatabookRecordEndpoint.MapEndpoint(app);
+
+            var importDatabookRecordsEndpoint = new ImportDatabookRecordsEndpoint();
+            importDatabookRecordsEndpoint.MapEndpoint(app);
+
+            var exportDatabookRecordsEndpoint = new ExportDatabookRecordsEndpoint();
+            exportDatabookRecordsEndpoint.MapEndpoint(app);
         }
     }
 }

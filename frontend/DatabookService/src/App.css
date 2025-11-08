@@ -274,6 +274,13 @@
   color: #991b1b;
 }
 
+.panel__success {
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  background: #dcfce7;
+  color: #166534;
+}
+
 .builder {
   display: grid;
   gap: 1.5rem;
@@ -404,6 +411,29 @@ textarea {
 .table-actions {
   display: flex;
   gap: 0.25rem;
+}
+
+.manager__table-button {
+  padding: 0.2rem 0.6rem;
+  font-size: 0.8rem;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: #e0e7ff;
+  color: #1e40af;
+  transition: background 0.2s, color 0.2s;
+}
+
+.manager__table-button:hover {
+  background: #c7d2fe;
+}
+
+.manager__table-button--danger {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.manager__table-button--danger:hover {
+  background: #fecaca;
 }
 
 .inline-form {
@@ -550,6 +580,87 @@ textarea {
 
 .record-form__field small {
   color: #64748b;
+}
+
+.record-detail__history table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #1f2937;
+}
+
+.record-detail__history th,
+.record-detail__history td {
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid #e2e8f0;
+  border-right: 1px solid #e2e8f0;
+  text-align: left;
+  vertical-align: middle;
+  word-break: break-word;
+}
+
+.record-detail__history th {
+  background: #f8fafc;
+  color: #475569;
+  font-weight: 600;
+}
+
+.record-detail__history td {
+  color: #111827;
+}
+
+.record-detail__history tr:nth-child(even) td {
+  background: #fbfbfb;
+}
+
+.record-detail__history th:last-child,
+.record-detail__history td:last-child {
+  border-right: none;
+}
+
+.collection-input {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.collection-input__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: #e0e7ff;
+  color: #1e1b4b;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+}
+
+.chip button {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: inherit;
+  font-weight: 600;
+}
+
+.collection-input__controls {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.collection-input__controls button {
+  border-radius: 8px;
+  border: 1px solid #cbd5f5;
+  background: #f8fafc;
+  padding: 0.4rem 0.8rem;
+  cursor: pointer;
 }
 
 .empty-state {

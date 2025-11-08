@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { apiRequest } from '../api/httpClient'
+import { useEffect, useRef, useState } from 'react'
+import { apiRequest, buildApiUrl } from '../api/httpClient'
 import { Pagination } from './Pagination'
 
 const PAGE_SIZE = 20
@@ -26,7 +26,11 @@ export function RecordsPanel({
   const [pagination, setPagination] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
   const [version, setVersion] = useState(0)
+  const [importing, setImporting] = useState(false)
+  const [exporting, setExporting] = useState(false)
+  const fileInputRef = useRef(null)
 
   useEffect(() => {
     setPage(1)
@@ -109,6 +113,89 @@ export function RecordsPanel({
     setPage(nextPage)
   }
 
+  const handleImportClick = () => {
+    fileInputRef.current?.click()
+  }
+
+  const handleImportFile = async (event) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    setImporting(true)
+    setError('')
+    setNotice('')
+
+    try
+    {
+      const formData = new FormData()
+      formData.append('file', file)
+
+      const result = await apiRequest(
+        `/api/directory-record/${type.id}/import`,
+        {
+          method: 'POST',
+          apiKey,
+          body: formData,
+        },
+      )
+
+      const imported = result?.imported ?? 0
+      const skipped = result?.skipped ?? 0
+      setNotice(`Импортировано ${imported}, пропущено ${skipped}`)
+
+      if (Array.isArray(result?.errors) && result.errors.length) {
+        setError(result.errors.slice(0, 5).join('; '))
+      }
+
+      refresh()
+      await onRefresh?.()
+    } catch (requestError) {
+      setError(requestError.message)
+    } finally {
+      setImporting(false)
+      if (event.target) event.target.value = ''
+    }
+  }
+
+  const handleExport = async () => {
+    setExporting(true)
+    setError('')
+    setNotice('')
+
+    try {
+      const url = buildApiUrl(`/api/directory-record/${type.id}/export`)
+      const response = await fetch(url, {
+        headers: {
+          'X-API-Key': apiKey.trim(),
+          Accept: 'text/csv',
+        },
+      })
+
+      if (!response.ok) {
+        throw new Error('Не удалось экспортировать данные')
+      }
+
+      const blob = await response.blob()
+      const disposition = response.headers.get('content-disposition')
+      const fileName = extractFileName(disposition) ?? `${type.tableName}.csv`
+
+      const downloadUrl = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = downloadUrl
+      link.download = fileName
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(downloadUrl)
+
+      setNotice('Экспорт завершён')
+    } catch (requestError) {
+      setError(requestError.message)
+    } finally {
+      setExporting(false)
+    }
+  }
+
   const hasData = rows.length > 0
 
   return (
@@ -122,10 +209,20 @@ export function RecordsPanel({
           <button type="button" className="secondary-button" onClick={onCreateRecord}>
             Создать
           </button>
-          <button type="button" className="ghost-button">
+          <button
+            type="button"
+            className="ghost-button"
+            onClick={handleImportClick}
+            disabled={importing || !apiKey}
+          >
             Импорт CSV
           </button>
-          <button type="button" className="ghost-button">
+          <button
+            type="button"
+            className="ghost-button"
+            onClick={handleExport}
+            disabled={exporting || !apiKey}
+          >
             Экспорт CSV
           </button>
           <button
@@ -137,17 +234,25 @@ export function RecordsPanel({
             }
             onClick={handleDeleteToggle}
           >
-            {mode === 'deleted' ? 'Показать актуальные' : 'Удаленные'}
+            {mode === 'deleted' ? 'Показать актуальные' : 'Удалённые'}
           </button>
         </div>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".csv"
+          style={{ display: 'none' }}
+          onChange={handleImportFile}
+        />
       </header>
 
+      {notice && <div className="panel__success">{notice}</div>}
       {error && <div className="panel__error">{error}</div>}
 
       <div className="records-table">
         <div className="records-table__header">
           <span>
-            {mode === 'deleted' ? 'Удаленные записи' : 'Все записи'} · страница {page}
+            {mode === 'deleted' ? 'Удалённые записи' : 'Все записи'} · страница {page}
           </span>
           {loading && <span className="sidebar__status">Загрузка...</span>}
         </div>
@@ -168,8 +273,8 @@ export function RecordsPanel({
                 <tr>
                   <td colSpan={columns.length + 1}>
                     {mode === 'deleted'
-                      ? 'Нет удаленных записей'
-                      : 'Записи отсутствуют'}
+                      ? 'Нет удалённых записей'
+                      : 'Пока нет записей'}
                   </td>
                 </tr>
               )}
@@ -235,3 +340,9 @@ const normalizePagination = (pagination) => ({
   hasPrevious: pagination.hasPrevious ?? pagination.HasPrevious ?? false,
   hasNext: pagination.hasNext ?? pagination.HasNext ?? false,
 })
+
+const extractFileName = (disposition) => {
+  if (!disposition) return null
+  const match = /filename="?([^"]+)"?/i.exec(disposition)
+  return match ? match[1] : null
+}

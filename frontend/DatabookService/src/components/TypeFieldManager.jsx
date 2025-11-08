@@ -97,6 +97,12 @@ export function TypeFieldManager({
       isCollection: addFieldDraft.isCollection,
       referenceDirectoryTypeId:
         addFieldDraft.referenceDirectoryTypeId || null,
+      enumValues: requiresEnumValues(addFieldDraft.dataType)
+        ? addFieldDraft.enumValues
+            .split(',')
+            .map((value) => value.trim())
+            .filter(Boolean)
+        : null,
     }
 
     try {
@@ -250,22 +256,24 @@ export function TypeFieldManager({
                   <td>{field.columnName}</td>
                   <td>{getFieldTypeLabel(field.dataType)}</td>
                   <td>{field.isRequired ? 'Да' : 'Нет'}</td>
-                  <td>
-                    <div className="table-actions">
-                      <button
-                        type="button"
-                        onClick={() => startEditField(field)}
-                      >
-                        Изменить
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteField(field.id)}
-                      >
-                        Удалить
-                      </button>
-                    </div>
-                  </td>
+                    <td>
+                      <div className="table-actions">
+                        <button
+                          type="button"
+                          className="ghost-button manager__table-button"
+                          onClick={() => startEditField(field)}
+                        >
+                          Изменить
+                        </button>
+                        <button
+                          type="button"
+                          className="ghost-button manager__table-button manager__table-button--danger"
+                          onClick={() => handleDeleteField(field.id)}
+                        >
+                          Удалить
+                        </button>
+                      </div>
+                    </td>
                 </tr>
               ))}
             </tbody>
@@ -431,4 +439,5 @@ const normalizeFieldShape = (field) => ({
   isCollection: field.isCollection ?? field.IsCollection,
   referenceDirectoryTypeId:
     field.referenceDirectoryTypeId ?? field.ReferenceDirectoryTypeId ?? null,
+  enumValues: field.enumValues ?? field.EnumValues ?? null,
 })

@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { apiRequest } from '../api/httpClient'
-import { FieldDataType, getFieldTypeLabel } from '../constants/fieldDataTypes'
+import { getFieldTypeLabel } from '../constants/fieldDataTypes'
+import {
+  buildInitialValues,
+  buildPayload,
+  getFieldKey,
+} from '../utils/recordFieldUtils'
+import { RecordFieldControl } from './RecordFieldControl'
 
 export function RecordForm({ apiKey, type, onCancel, onCreated }) {
   const sortedFields = useMemo(
@@ -16,29 +22,11 @@ export function RecordForm({ apiKey, type, onCancel, onCreated }) {
     setValues(buildInitialValues(sortedFields))
   }, [sortedFields])
 
-  const handleChange = (field, event) => {
-    if (field.dataType === FieldDataType.CHECKBOX && !field.isCollection) {
-      setValues((prev) => ({
-        ...prev,
-        [field.columnName]: event.target.checked,
-      }))
-      return
-    }
-
-    if (field.isCollection && field.dataType === FieldDataType.ENUM) {
-      const selected = Array.from(event.target.selectedOptions).map(
-        (option) => option.value,
-      )
-      setValues((prev) => ({
-        ...prev,
-        [field.columnName]: selected,
-      }))
-      return
-    }
-
+  const handleValueChange = (field, nextValue) => {
+    const key = getFieldKey(field)
     setValues((prev) => ({
       ...prev,
-      [field.columnName]: event.target.value,
+      [key]: nextValue,
     }))
   }
 
@@ -50,14 +38,8 @@ export function RecordForm({ apiKey, type, onCancel, onCreated }) {
 
       const payload = {
         tableId: type.id,
-        fieldsValues: {},
+        fieldsValues: buildPayload(sortedFields, values),
       }
-
-      sortedFields.forEach((field) => {
-        const value = values[field.columnName]
-        if (value === '' || value === null || value === undefined) return
-        payload.fieldsValues[field.columnName] = normalizeValue(field, value)
-      })
 
       await apiRequest('/api/directory-record', {
         method: 'POST',
@@ -77,8 +59,8 @@ export function RecordForm({ apiKey, type, onCancel, onCreated }) {
     <section className="panel card">
       <header className="panel__header">
         <div>
-          <h2>Новая запись · {type.name}</h2>
-          <p>Заполните данные и нажмите «Сохранить», чтобы добавить запись.</p>
+          <h2>Создание записи · {type.name}</h2>
+          <p>Заполните значения во всех обязательных полях, чтобы сохранить запись.</p>
         </div>
         <div className="panel__actions">
           <button type="button" className="ghost-button" onClick={onCancel}>
@@ -98,116 +80,29 @@ export function RecordForm({ apiKey, type, onCancel, onCreated }) {
       {error && <div className="panel__error">{error}</div>}
 
       <form className="record-form" onSubmit={handleSubmit}>
-        {sortedFields.map((field) => (
-          <div key={field.id} className="record-form__field">
-            <label>
-              <span>
-                {field.name}{' '}
-                {!field.isRequired && <span className="muted">(необязательно)</span>}
-              </span>
-              {renderInput(field, values[field.columnName], (event) =>
-                handleChange(field, event),
-              )}
-            </label>
-            <small>
-              {getFieldTypeLabel(field.dataType)}
-              {field.isCollection ? ' · коллекция' : ''}
-            </small>
-          </div>
-        ))}
+        {sortedFields.map((field) => {
+          const key = getFieldKey(field)
+          return (
+            <div key={field.id} className="record-form__field">
+              <label>
+                <span>
+                  {field.name}{' '}
+                  {!field.isRequired && <span className="muted">(необязательно)</span>}
+                </span>
+                <RecordFieldControl
+                  field={field}
+                  value={values[key]}
+                  onChange={(nextValue) => handleValueChange(field, nextValue)}
+                />
+              </label>
+              <small>
+                {getFieldTypeLabel(field.dataType)}
+                {field.isCollection ? ' · коллекция' : ''}
+              </small>
+            </div>
+          )
+        })}
       </form>
     </section>
   )
 }
-
-const normalizeValue = (field, value) => {
-  if (field.isCollection) {
-    if (Array.isArray(value)) return value
-    return String(value)
-      .split(/[\n,]/)
-      .map((item) => item.trim())
-      .filter(Boolean)
-  }
-
-  switch (field.dataType) {
-    case FieldDataType.NUMBER:
-      return Number(value)
-    case FieldDataType.CHECKBOX:
-      return Boolean(value)
-    default:
-      return value
-  }
-}
-
-const renderInput = (field, value, onChange) => {
-  if (field.dataType === FieldDataType.CHECKBOX && !field.isCollection) {
-    return (
-      <input
-        type="checkbox"
-        checked={Boolean(value)}
-        onChange={onChange}
-      />
-    )
-  }
-
-  if (field.isCollection && field.dataType === FieldDataType.ENUM) {
-    const options = field.enumValues ?? field.collectionData?.map((item) => item.value) ?? []
-    return (
-      <select multiple value={value} onChange={onChange}>
-        {options.map((option) => (
-          <option key={option} value={option}>
-            {option}
-          </option>
-        ))}
-      </select>
-    )
-  }
-
-  if (field.dataType === FieldDataType.ENUM) {
-    const options = field.enumValues ?? field.collectionData?.map((item) => item.value) ?? []
-    return (
-      <select value={value} onChange={onChange}>
-        <option value="">Не выбрано</option>
-        {options.map((option) => (
-          <option key={option} value={option}>
-            {option}
-          </option>
-        ))}
-      </select>
-    )
-  }
-
-  if (field.isCollection) {
-    return (
-      <textarea
-        rows={3}
-        value={Array.isArray(value) ? value.join(', ') : value}
-        onChange={onChange}
-        placeholder="Перечислите значения через запятую"
-      />
-    )
-  }
-
-  const inputType = resolveInputType(field.dataType)
-
-  return <input type={inputType} value={value} onChange={onChange} />
-}
-
-const resolveInputType = (dataType) => {
-  switch (dataType) {
-    case FieldDataType.NUMBER:
-      return 'number'
-    case FieldDataType.DATE:
-      return 'date'
-    case FieldDataType.DATETIME:
-      return 'datetime-local'
-    default:
-      return 'text'
-  }
-}
-
-const buildInitialValues = (fields) =>
-  fields.reduce((acc, field) => {
-    acc[field.columnName] = field.isCollection ? [] : ''
-    return acc
-  }, {})

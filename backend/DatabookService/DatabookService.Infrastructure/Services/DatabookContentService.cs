@@ -58,6 +58,87 @@ public class DatabookContentService : IDatabookContentService
             }
         }
 
+    public async Task UpdateValues(
+        DirectoryType table,
+        IReadOnlyCollection<DirectoryField> expectedFields,
+        Guid recordId,
+        Dictionary<string, object> actualFields,
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+
+        try
+        {
+            var regularFields = expectedFields
+                .Where(f => !f.IsCollection && actualFields.ContainsKey(f.ColumnName))
+                .ToList();
+
+            var setClauses = new List<string>();
+            var parameters = new List<NpgsqlParameter>();
+
+            foreach (var field in regularFields)
+            {
+                var parameterName = $"@p_{field.ColumnName}";
+                setClauses.Add($@"""{field.ColumnName}"" = {parameterName}");
+                var converted = _typesValidationService.ConvertJsonToCorrectType(
+                    field,
+                    actualFields[field.ColumnName] ?? DBNull.Value);
+                parameters.Add(new NpgsqlParameter(parameterName, converted ?? DBNull.Value));
+            }
+
+            setClauses.Add(@"""UpdatedAt"" = NOW()");
+
+            var sql =
+                $"UPDATE \"{table.TableName}\" SET {string.Join(", ", setClauses)} WHERE \"Id\" = @recordId";
+
+            await using (var command = new NpgsqlCommand(sql, connection, transaction))
+            {
+                command.Parameters.AddWithValue("@recordId", recordId);
+                if (parameters.Any())
+                {
+                    command.Parameters.AddRange(parameters.ToArray());
+                }
+
+                await command.ExecuteNonQueryAsync(cancellationToken);
+            }
+
+            var collectionFields = expectedFields
+                .Where(f => f.IsCollection && actualFields.ContainsKey(f.ColumnName))
+                .ToList();
+
+            foreach (var field in collectionFields)
+            {
+                await DeleteCollectionItems(
+                    table.TableName,
+                    recordId,
+                    field,
+                    connection,
+                    transaction,
+                    cancellationToken);
+
+                var values = actualFields[field.ColumnName];
+                await InsertCollectionItems(
+                    table.TableName,
+                    recordId,
+                    field,
+                    values,
+                    connection,
+                    transaction,
+                    cancellationToken);
+            }
+
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
+
     private async Task<Guid?> InsertMainRecord(
         string tableName,
         IReadOnlyCollection<DirectoryField> expectedFields,
@@ -149,6 +230,23 @@ public class DatabookContentService : IDatabookContentService
         command.Parameters.AddWithValue("@id_record", mainRecordId);
         command.Parameters.AddWithValue("@value", dbValue ?? DBNull.Value);
         command.Parameters.AddWithValue("@sort_order", sortOrder);
+
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    private async Task DeleteCollectionItems(
+        string tableName,
+        Guid recordId,
+        DirectoryField field,
+        NpgsqlConnection connection,
+        NpgsqlTransaction transaction,
+        CancellationToken cancellationToken)
+    {
+        var collectionTableName = $"{tableName}_{field.ColumnName}";
+        var sql = $@"DELETE FROM ""{collectionTableName}"" WHERE ""IdRecord"" = @id";
+
+        await using var command = new NpgsqlCommand(sql, connection, transaction);
+        command.Parameters.AddWithValue("@id", recordId);
 
         await command.ExecuteNonQueryAsync(cancellationToken);
     }

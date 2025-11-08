@@ -15,6 +15,13 @@ namespace DatabookService.Application.Interfaces.Services
             Dictionary<string, object> actualFields,
             CancellationToken cancellationToken = default);
         
+        Task UpdateValues(
+            DirectoryType tableName,
+            IReadOnlyCollection<DirectoryField> expectedFields,
+            Guid recordId,
+            Dictionary<string, object> actualFields,
+            CancellationToken cancellationToken = default);
+        
         Task<List<Dictionary<string, object>>> GetAllRecordsAsync(
             string tableName,
             IReadOnlyCollection<DirectoryField> fields,
