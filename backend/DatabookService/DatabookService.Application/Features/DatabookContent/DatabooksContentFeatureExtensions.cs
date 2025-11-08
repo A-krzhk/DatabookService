@@ -12,6 +12,7 @@ using DatabookService.Application.Features.DatabookContent.Delete;
 using DatabookService.Application.Features.DatabookContent.Delete.BackgroundJobs;
 using DatabookService.Application.Features.DatabookContent.Get;
 using DatabookService.Application.Features.DatabookContent.Restore;
+using DatabookService.Application.Features.DatabookContent.Copy;
 
 namespace DatabookService.Application.Features.DatabookContent
 {
@@ -26,7 +27,8 @@ namespace DatabookService.Application.Features.DatabookContent
             services.AddScoped<GetDatabookRecordByIdQuery>();
             services.AddScoped<GetAllDeletedDatabookRecordsQuery>();
             services.AddScoped<RestoreDatabookRecordCommand>();
-            
+            services.AddScoped<CopyDatabookRecordCommand>();
+
             //Фоновые процессы
             services.AddHostedService<DirectoryRecordsCleanupService>();
             
@@ -50,6 +52,9 @@ namespace DatabookService.Application.Features.DatabookContent
             
             var restoreDatabookRecordEndpoint = new RestoreDatabookRecordEndpoint();
             restoreDatabookRecordEndpoint.MapEndpoint(app);
+
+            var copyDatabookRecordEndpoint = new CopyDatabookRecordEndpoint();
+            copyDatabookRecordEndpoint.MapEndpoint(app);
         }
     }
 }

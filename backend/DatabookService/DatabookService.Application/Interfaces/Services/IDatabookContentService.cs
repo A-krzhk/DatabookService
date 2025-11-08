@@ -45,5 +45,10 @@ namespace DatabookService.Application.Interfaces.Services
             string tableName,
             Guid recordId,
             CancellationToken cancellationToken = default);
+
+        Task<Guid> InsertCopiedRecordAsync(
+            DirectoryType directoryType,
+            Dictionary<string, object> sourceRecord,
+            CancellationToken cancellationToken = default);
     }
 }

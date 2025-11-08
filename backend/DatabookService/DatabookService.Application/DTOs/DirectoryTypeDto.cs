@@ -18,7 +18,8 @@ public record DirectoryFieldDto(
     bool IsCollection,
     Guid? ReferenceDirectoryTypeId,
     string? ReferenceDirectoryTypeName,
-    List<CollectionItemDto>? CollectionData
+    List<CollectionItemDto>? CollectionData,
+    List<string>? EnumValues = null
 );
 
 public record CollectionItemDto(

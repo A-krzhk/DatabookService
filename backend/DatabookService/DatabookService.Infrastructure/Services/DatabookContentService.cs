@@ -430,5 +430,175 @@ public class DatabookContentService : IDatabookContentService
         var affectedRows = await command.ExecuteNonQueryAsync(cancellationToken);
         return affectedRows > 0;
     }
+
+    public async Task<Guid> InsertCopiedRecordAsync(
+            DirectoryType directoryType,
+            Dictionary<string, object> sourceRecord,
+            CancellationToken cancellationToken = default)
+    {
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+
+        using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+
+        try
+        {
+            //Вставляем основную запись
+            var mainRecordId = await InsertMainRecordAsync(
+                directoryType.TableName,
+                directoryType.Fields,
+                sourceRecord,
+                connection,
+                transaction,
+                cancellationToken);
+
+            if (mainRecordId == Guid.Empty)
+                return Guid.Empty;
+
+            //Вставляем коллекции
+            await InsertCollectionRecordsAsync(
+                directoryType.TableName,
+                mainRecordId,
+                directoryType.Fields,
+                sourceRecord,
+                connection,
+                transaction,
+                cancellationToken);
+
+            await transaction.CommitAsync(cancellationToken);
+            return mainRecordId;
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
+
+    private async Task<Guid> InsertMainRecordAsync(
+        string tableName,
+        IReadOnlyCollection<DirectoryField> fields,
+        Dictionary<string, object> sourceRecord,
+        NpgsqlConnection connection,
+        NpgsqlTransaction transaction,
+        CancellationToken cancellationToken)
+    {
+        // Фильтруем только обычные поля (не коллекции)
+        var regularFields = fields.Where(f => !f.IsCollection).ToList();
+
+        // Формируем SQL для вставки
+        var columnNames = string.Join(", ", regularFields.Select(f => $@"""{f.ColumnName}"""));
+        var parameterNames = string.Join(", ", regularFields.Select(f => $"@p_{f.ColumnName}"));
+
+        var sql = $@"INSERT INTO ""{tableName}"" ({columnNames}) VALUES ({parameterNames}) RETURNING ""Id""";
+
+        await using var command = new NpgsqlCommand(sql, connection, transaction);
+
+        // Добавляем параметры из sourceRecord
+        foreach (var field in regularFields)
+        {
+            if (sourceRecord.TryGetValue(field.ColumnName, out var value))
+            {
+                command.Parameters.AddWithValue($"@p_{field.ColumnName}", value ?? DBNull.Value);
+            }
+            else
+            {
+                // Если поля нет в sourceRecord, используем NULL
+                command.Parameters.AddWithValue($"@p_{field.ColumnName}", DBNull.Value);
+            }
+        }
+
+        var result = await command.ExecuteScalarAsync(cancellationToken);
+        return result as Guid? ?? Guid.Empty;
+    }
+
+    private async Task InsertCollectionRecordsAsync(
+        string tableName,
+        Guid mainRecordId,
+        IReadOnlyCollection<DirectoryField> fields,
+        Dictionary<string, object> sourceRecord,
+        NpgsqlConnection connection,
+        NpgsqlTransaction transaction,
+        CancellationToken cancellationToken)
+    {
+        var collectionFields = fields.Where(f => f.IsCollection).ToList();
+
+        foreach (var field in collectionFields)
+        {
+            if (sourceRecord.TryGetValue(field.ColumnName, out var collectionData))
+            {
+                await InsertCollectionItemsAsync(
+                    tableName,
+                    mainRecordId,
+                    field,
+                    collectionData,
+                    connection,
+                    transaction,
+                    cancellationToken);
+            }
+        }
+    }
+
+    private async Task InsertCollectionItemsAsync(
+        string mainTableName,
+        Guid mainRecordId,
+        DirectoryField field,
+        object collectionData,
+        NpgsqlConnection connection,
+        NpgsqlTransaction transaction,
+        CancellationToken cancellationToken)
+    {
+        var collectionTableName = $"{mainTableName}_{field.ColumnName}";
+
+        // Если collectionData - это строка с разделителями, парсим её
+        var items = ParseCollectionData(collectionData);
+
+        for (int i = 0; i < items.Count; i++)
+        {
+            // Определяем SQL в зависимости от типа поля
+            string sql;
+            if (field.DataType == FieldDataType.Reference && field.ReferenceDirectoryType != null)
+            {
+                sql = $@"
+                INSERT INTO ""{collectionTableName}"" 
+                (""IdField"", ""IdRecord"", ""{field.ReferenceDirectoryType.TableName}Id"", ""SortOrder"") 
+                VALUES (@id_field, @id_record, @value, @sort_order)";
+            }
+            else
+            {
+                sql = $@"
+                INSERT INTO ""{collectionTableName}"" 
+                (""IdField"", ""IdRecord"", ""Value"", ""SortOrder"") 
+                VALUES (@id_field, @id_record, @value, @sort_order)";
+            }
+
+            await using var command = new NpgsqlCommand(sql, connection, transaction);
+
+            // Обязательные поля
+            command.Parameters.AddWithValue("@id_field", field.Id);
+            command.Parameters.AddWithValue("@id_record", mainRecordId);
+            command.Parameters.AddWithValue("@value", items[i] ?? DBNull.Value);
+            command.Parameters.AddWithValue("@sort_order", i);
+
+            await command.ExecuteNonQueryAsync(cancellationToken);
+        }
+    }
+
+    private List<object> ParseCollectionData(object collectionData)
+    {
+        if (collectionData is List<object> list)
+            return list;
+
+        if (collectionData is string stringData)
+        {
+            return stringData.Split(',')
+                .Select(item => item.Trim())
+                .Where(item => !string.IsNullOrEmpty(item))
+                .Cast<object>()
+                .ToList();
+        }
+
+        return new List<object>();
+    }
 }
 

@@ -59,6 +59,7 @@ namespace DatabookService.Infrastructure.Services
         }
 
         public async Task LogRecordCreationAsync(
+            bool isCopy,
             Guid directoryTypeId,
             Guid recordId,
             string tableName,
@@ -67,17 +68,19 @@ namespace DatabookService.Infrastructure.Services
         {
             foreach (var value in fieldValues) 
             {
+                string stringValue = ConvertValueToString(value.Value);
+
                 var historyRecord = new ChangesHistoryRecord
                 {
                     Id = Guid.NewGuid(),
-                    Name = $"{tableName}_{recordId}_hist_create",
+                    Name = $"{tableName}_{recordId}_hist_{(isCopy ? "copy" : "create")}",
                     DirectoryTypeId = directoryTypeId,
                     RecordId = recordId,
                     TableName = tableName,
-                    Action = ChangeAction.Create,
+                    Action = isCopy ? ChangeAction.Copy : ChangeAction.Create,
                     FieldName = value.Key,
                     OldValue = null, 
-                    NewValue = value.Value?.ToString(),
+                    NewValue = stringValue,
                     ChangedBy = GetCurrentUserName(),
                     ChangedAt = DateTime.UtcNow
                 };
@@ -98,6 +101,9 @@ namespace DatabookService.Infrastructure.Services
 
             foreach (var (fieldName, oldValue, newValue) in changedFields) //все изменённые значения
             {
+                string stringOldValue = ConvertValueToString(oldValue);
+                string stringNewValue = ConvertValueToString(newValue);
+
                 var historyRecord = new ChangesHistoryRecord
                 {
                     Id = Guid.NewGuid(),
@@ -107,8 +113,8 @@ namespace DatabookService.Infrastructure.Services
                     TableName = tableName,
                     Action = ChangeAction.Update,
                     FieldName = fieldName,
-                    OldValue = oldValue?.ToString(),
-                    NewValue = newValue?.ToString(),
+                    OldValue = stringOldValue,
+                    NewValue = stringNewValue,
                     ChangedBy = GetCurrentUserName(),
                     ChangedAt = DateTime.UtcNow
                 };
@@ -126,6 +132,8 @@ namespace DatabookService.Infrastructure.Services
         {
             foreach (var value in oldValues)
             {
+                string stringValue = ConvertValueToString(value.Value);
+
                 var historyRecord = new ChangesHistoryRecord
                 {
                     Id = Guid.NewGuid(),
@@ -135,7 +143,7 @@ namespace DatabookService.Infrastructure.Services
                     TableName = tableName,
                     Action = ChangeAction.Delete,
                     FieldName = value.Key,
-                    OldValue = value.Value?.ToString(),
+                    OldValue = stringValue,
                     NewValue = null,
                     ChangedBy = GetCurrentUserName(),
                     ChangedAt = DateTime.UtcNow
@@ -150,14 +158,41 @@ namespace DatabookService.Infrastructure.Services
             if (value == null)
                 return null;
 
-            // Если это список/коллекция - сериализуем в JSON
+            // Если это JSON строка
+            if (value is JsonElement jsonElement)
+            {
+                if (jsonElement.ValueKind == JsonValueKind.Array)
+                {
+                    var items = jsonElement.EnumerateArray()
+                        .Select(element => element.ToString().Trim('"')); 
+                    return string.Join(", ", items);
+                }
+                return jsonElement.ToString();
+            }
+            // Если это коллекция - сериализуем в JSON
             if (value is IEnumerable<object> enumerable && value is not string)
             {
+                if (enumerable.All(x => x is string))
+                {
+                    return string.Join(", ", enumerable.Cast<string>());
+                }
+
+                var options = new JsonSerializerOptions
+                {
+                    Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping, //Разрешает кириллицу
+                    WriteIndented = false
+                };
+
                 return JsonSerializer.Serialize(enumerable);
             }
 
             // Для простых типов используем ToString()
             return value.ToString();
+        }
+
+        private bool IsJsonArray(string value)
+        {
+            return value?.Trim().StartsWith("[") == true && value.Trim().EndsWith("]");
         }
 
         private string GetCurrentUserName()

@@ -11,22 +11,6 @@ namespace DatabookService.Infrastructure.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropColumn(
-                name: "CreatedAt",
-                table: "DirectoryTypes");
-
-            migrationBuilder.DropColumn(
-                name: "DeletedDate",
-                table: "DirectoryTypes");
-
-            migrationBuilder.DropColumn(
-                name: "IsDeleted",
-                table: "DirectoryTypes");
-
-            migrationBuilder.DropColumn(
-                name: "UpdatedAt",
-                table: "DirectoryTypes");
-
             migrationBuilder.CreateTable(
                 name: "ChangesHistoryRecord",
                 columns: table => new
@@ -65,32 +49,6 @@ namespace DatabookService.Infrastructure.Migrations
         {
             migrationBuilder.DropTable(
                 name: "ChangesHistoryRecord");
-
-            migrationBuilder.AddColumn<DateTime>(
-                name: "CreatedAt",
-                table: "DirectoryTypes",
-                type: "timestamp with time zone",
-                nullable: false,
-                defaultValue: new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified));
-
-            migrationBuilder.AddColumn<DateTime>(
-                name: "DeletedDate",
-                table: "DirectoryTypes",
-                type: "timestamp with time zone",
-                nullable: true);
-
-            migrationBuilder.AddColumn<bool>(
-                name: "IsDeleted",
-                table: "DirectoryTypes",
-                type: "boolean",
-                nullable: false,
-                defaultValue: false);
-
-            migrationBuilder.AddColumn<DateTime>(
-                name: "UpdatedAt",
-                table: "DirectoryTypes",
-                type: "timestamp with time zone",
-                nullable: true);
         }
     }
 }

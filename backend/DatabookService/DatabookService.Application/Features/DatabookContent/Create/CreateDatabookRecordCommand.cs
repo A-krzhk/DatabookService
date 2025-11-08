@@ -65,6 +65,7 @@ public class CreateDatabookRecordCommand
 
         //Добавление информации в историю записи
         await _changesHistoryService.LogRecordCreationAsync(
+                        false,
                         directoryType.Id,
                         (Guid)newRecordId,
                         directoryType.TableName,
