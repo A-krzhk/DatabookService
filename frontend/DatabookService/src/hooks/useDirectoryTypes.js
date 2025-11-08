@@ -63,6 +63,8 @@ export function useDirectoryTypes(apiKey) {
             name: item.name ?? item.Name ?? 'Untitled',
             description: item.description ?? item.Description ?? '',
             tableName: item.tableName ?? item.TableName ?? '',
+            directoryGroupId: item.directoryGroupId ?? item.DirectoryGroupId ?? null,
+            directoryGroupName: item.directoryGroupName ?? item.DirectoryGroupName ?? 'Без группы',
             fields: (item.fields ?? item.Fields ?? []).map(normalizeField),
             raw: item,
           }),

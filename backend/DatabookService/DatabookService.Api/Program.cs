@@ -123,7 +123,7 @@ try
     {
         options.AddPolicy("AllowFrontend", policy =>
         {
-            policy.WithOrigins("http://localhost:3000", "http://localhost", "http://localhost:80") // для разработки и Docker
+            policy.WithOrigins("http://localhost:3000", "http://localhost", "http://localhost:80", "http://localhost:5000") // для разработки и Docker
                 .AllowAnyHeader()
                 .AllowAnyMethod()
                 .AllowCredentials();
@@ -194,3 +194,4 @@ finally
 {
     Log.CloseAndFlush();
 }
+

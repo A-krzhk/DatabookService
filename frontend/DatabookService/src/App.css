@@ -95,6 +95,68 @@
   gap: 1rem;
 }
 
+.sidebar__actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.sidebar__button {
+  flex: 1;
+  padding: 0.45rem 0.75rem;
+  border-radius: 8px;
+  font-weight: 600;
+  border: 1px solid transparent;
+  cursor: pointer;
+}
+
+.sidebar__button--primary {
+  background: #1d4ed8;
+  color: #ffffff;
+}
+
+.sidebar__button--ghost {
+  border: 1px dashed #94a3b8;
+  background: transparent;
+  color: #1d4ed8;
+}
+
+.sidebar__button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.sidebar__groups {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  overflow-y: auto;
+}
+
+.sidebar__group {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #f8fafc;
+  padding: 0.4rem;
+}
+
+.sidebar__group-header {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0.75rem;
+  background: transparent;
+  border: none;
+  font-weight: 600;
+  cursor: pointer;
+  color: #0f172a;
+}
+
+.sidebar__group-toggle {
+  font-size: 1.2rem;
+  color: #475569;
+}
+
 .sidebar__header {
   display: flex;
   justify-content: space-between;
@@ -139,18 +201,16 @@
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
-  flex: 1;
-  overflow-y: auto;
 }
 
 .sidebar__list li {
   display: flex;
-  gap: 0.5rem;
-  align-items: stretch;
+  align-items: center;
+  gap: 0.35rem;
 }
 
 .sidebar__item {
-  width: 100%;
+  flex: 1;
   text-align: left;
   border: 1px solid transparent;
   border-radius: 10px;
@@ -582,6 +642,10 @@ textarea {
   color: #64748b;
 }
 
+.reference-select select {
+  width: 100%;
+}
+
 .record-detail__history table {
   width: 100%;
   border-collapse: collapse;
@@ -661,6 +725,50 @@ textarea {
   background: #f8fafc;
   padding: 0.4rem 0.8rem;
   cursor: pointer;
+}
+
+.field-hint {
+  font-size: 0.85rem;
+  color: #64748b;
+  margin-top: 0.25rem;
+}
+
+.field-hint--error {
+  color: #b91c1c;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.modal {
+  width: min(420px, 100%);
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 1.5rem;
+  box-shadow: 0 30px 60px rgba(15, 23, 42, 0.25);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.modal__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
 }
 
 .empty-state {

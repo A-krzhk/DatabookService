@@ -327,10 +327,26 @@ export function RecordsPanel({
 const renderCell = (value) => {
   if (value === null || value === undefined) return '—'
   if (Array.isArray(value)) return value.join(', ')
+  if (value instanceof Date) return formatDateValue(value)
+  if (typeof value === 'string') {
+    const parsed = Date.parse(value)
+    if (!Number.isNaN(parsed)) {
+      return formatDateValue(new Date(parsed))
+    }
+  }
   if (typeof value === 'object') return JSON.stringify(value)
   if (typeof value === 'boolean') return value ? 'Да' : 'Нет'
   return String(value)
 }
+
+const formatDateValue = (date) =>
+  date.toLocaleString([], {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 
 const normalizePagination = (pagination) => ({
   pageNumber: pagination.pageNumber ?? pagination.PageNumber ?? 1,

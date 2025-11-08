@@ -5,6 +5,7 @@ public record DirectoryTypeDto(
     string Name,
     string TableName,
     string? Description,
+    Guid? DirectoryGroupId,
     string? DirectoryGroupName,
     List<DirectoryFieldDto> Fields
 );

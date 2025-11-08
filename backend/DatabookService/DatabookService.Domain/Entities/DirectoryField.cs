@@ -45,7 +45,7 @@ public class DirectoryField
         Id = Guid.NewGuid();
         DirectoryTypeId = directoryTypeId;
         Name = name;
-        ColumnName = columnName;
+        ColumnName = columnName.Trim().ToLowerInvariant();
         DataType = dataType;
         IsRequired = isRequired;
         Order = order;

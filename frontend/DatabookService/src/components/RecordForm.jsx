@@ -90,6 +90,7 @@ export function RecordForm({ apiKey, type, onCancel, onCreated }) {
                   {!field.isRequired && <span className="muted">(необязательно)</span>}
                 </span>
                 <RecordFieldControl
+                  apiKey={apiKey}
                   field={field}
                   value={values[key]}
                   onChange={(nextValue) => handleValueChange(field, nextValue)}
