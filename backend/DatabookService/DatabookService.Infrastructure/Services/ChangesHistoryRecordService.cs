@@ -6,6 +6,7 @@ using DatabookService.Application.Interfaces.Services;
 using DatabookService.Domain.Entities;
 using DatabookService.Domain.Enums;
 using Microsoft.AspNetCore.Http;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -33,9 +34,11 @@ namespace DatabookService.Infrastructure.Services
             string tableName,
             Dictionary<string, object> fieldValues,
             CancellationToken cancellationToken = default)
-        {
+        {          
             foreach (var value in fieldValues)
             {
+                string stringValue = ConvertValueToString(value.Value);
+
                 var historyRecord = new ChangesHistoryRecord
                 {
                     Id = Guid.NewGuid(),
@@ -45,7 +48,7 @@ namespace DatabookService.Infrastructure.Services
                     TableName = tableName,
                     Action = ChangeAction.Read,
                     FieldName = value.Key,
-                    OldValue = value.Value?.ToString(),
+                    OldValue = stringValue,
                     NewValue = null,
                     ChangedBy = GetCurrentUserName(),
                     ChangedAt = DateTime.UtcNow
@@ -140,6 +143,21 @@ namespace DatabookService.Infrastructure.Services
 
                 await _historyRepository.AddAsync(historyRecord, cancellationToken);
             }
+        }
+
+        private string ConvertValueToString(object value)
+        {
+            if (value == null)
+                return null;
+
+            // Если это список/коллекция - сериализуем в JSON
+            if (value is IEnumerable<object> enumerable && value is not string)
+            {
+                return JsonSerializer.Serialize(enumerable);
+            }
+
+            // Для простых типов используем ToString()
+            return value.ToString();
         }
 
         private string GetCurrentUserName()
