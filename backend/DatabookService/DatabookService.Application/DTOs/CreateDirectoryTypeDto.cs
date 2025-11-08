@@ -1,9 +1,10 @@
-namespace DatabookService.Application.DTOs;
+﻿namespace DatabookService.Application.DTOs;
 
 public record CreateDirectoryTypeDto(
     string Name,
     string TableName,
     string? Description,
+    Guid? DirectoryGroupId,
     List<CreateDirectoryFieldDto> Fields
 );
 

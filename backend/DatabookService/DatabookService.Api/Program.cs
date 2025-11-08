@@ -2,6 +2,7 @@ using DatabookService.Application.Features.ApiKeys;
 using DatabookService.Application.Features.ChangesHistoryRecord;
 using DatabookService.Application.Features.DatabookContent;
 using DatabookService.Application.Features.DatabookTypes;
+using DatabookService.Application.Features.DirectoryGroups;
 using DatabookService.Application.Interfaces;
 using DatabookService.Application.Interfaces.Repositories;
 using DatabookService.Application.Interfaces.Services;
@@ -14,6 +15,7 @@ using DatabookService.Web.Middleware;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
 using Serilog.Exceptions;
+using System;
 using System.Globalization;
 
 Log.Logger = new LoggerConfiguration()
@@ -31,6 +33,7 @@ try
     builder.Services.AddDatabooksContentFeature();
     builder.Services.AddChangesHistoryFeature();
 
+    builder.Services.AddDirectoryGroupsFeature();
     builder.Services.AddApiKeysFeature();
     builder.Services.AddHttpContextAccessor(); //Для получения HttpContext в сервисах
 
@@ -79,6 +82,8 @@ try
     builder.Services.AddScoped<DatabookService.Application.Interfaces.Repositories.IDirectoryCollectionRepository, DirectoryCollectionRepository>();
     builder.Services.AddScoped<DatabookService.Application.Interfaces.Repositories.IChangesHistoryRecordRepository, ChangesHistoryRecordRepository>();
     
+    builder.Services.AddScoped<DatabookService.Application.Interfaces.Repositories.IDirectoryGroupRepository, DirectoryGroupRepository>();
+
     // Services
     builder.Services.AddScoped<IDynamicTableService, DynamicTableService>(sp =>
         new DynamicTableService(sp.GetRequiredService<ApplicationDbContext>(), 
@@ -175,6 +180,7 @@ try
     app.MapDirectoryTypesFeature();
     app.MapDatabooksContentFeature();
     app.MapChangesHistoryFeature();
+    app.MapDirectoryGroupsFeature();
     app.MapApiKeysFeature();
 
     app.Run();

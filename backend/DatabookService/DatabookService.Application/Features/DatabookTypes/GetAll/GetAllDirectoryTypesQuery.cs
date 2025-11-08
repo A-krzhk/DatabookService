@@ -1,4 +1,4 @@
-using DatabookService.Application.DTOs;
+﻿using DatabookService.Application.DTOs;
 using DatabookService.Application.Interfaces;
 using DatabookService.Application.Interfaces.Repositories;
 
@@ -62,6 +62,7 @@ public class GetAllDirectoryTypesQuery
                 dt.Name,
                 dt.TableName,
                 dt.Description,
+                dt.DirectoryGroup?.Name,
                 fields
             ));
         }

@@ -1,24 +1,30 @@
 ﻿using DatabookService.Application.DTOs;
+﻿using DatabookService.Application.Features.DatabookTypes.Create;
 using DatabookService.Application.Interfaces;
 using DatabookService.Application.Interfaces.Services;
+using DatabookService.Application.Interfaces.Repositories;
 using DatabookService.Domain.Entities;
 using DatabookService.Domain.Enums;
 using Microsoft.Extensions.Logging;
+using DatabookService.Application.DTOs;
 
 namespace DatabookService.Application.Features.DatabookTypes.Create;
 
 public class CreateDirectoryTypeCommand
 {
     private readonly IDirectoryTypeRepository _repository;
+    private readonly IDirectoryGroupRepository _groupRepository;
     private readonly IDynamicTableService _dynamicTableService;
     private readonly ILogger<CreateDirectoryTypeCommand> _logger;
 
     public CreateDirectoryTypeCommand(
         IDirectoryTypeRepository repository,
+        IDirectoryGroupRepository groupRepository,
         IDynamicTableService dynamicTableService,
         ILogger<CreateDirectoryTypeCommand> logger)
     {
         _repository = repository;
+        _groupRepository = groupRepository;
         _dynamicTableService = dynamicTableService;
         _logger = logger;
     }
@@ -28,36 +34,47 @@ public class CreateDirectoryTypeCommand
         CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("Creating Databook Directory Type");
-        // РџСЂРѕРІРµСЂРєР° СЃСѓС‰РµСЃС‚РІРѕРІР°РЅРёСЏ С‚Р°Р±Р»РёС†С‹
+
+        DirectoryGroup? group = null;
+        if (dto.DirectoryGroupId.HasValue)
+        {
+            group = await _groupRepository.GetByIdAsync(dto.DirectoryGroupId.Value, cancellationToken);
+            if (group == null)
+            {
+                throw new InvalidOperationException($"Directory group with ID '{dto.DirectoryGroupId}' not found");
+            }
+        }
+
+        // Проверка существования таблицы
         if (await _repository.TableNameExistsAsync(dto.TableName, cancellationToken))
         {
             throw new InvalidOperationException($"Directory type with table name '{dto.TableName}' already exists");
         }
 
-        // РЎРѕР·РґР°РЅРёРµ РґРѕРјРµРЅРЅРѕР№ СЃСѓС‰РЅРѕСЃС‚Рё
-        var directoryType = new DirectoryType(dto.Name, dto.TableName, dto.Description);
+        // Создание доменной сущности, передаём необязательный DirectoryGroupId (может быть null)
+        var directoryType = new DirectoryType(dto.Name, dto.TableName, dto.Description, dto.DirectoryGroupId);
 
-        // Р”РѕР±Р°РІР»РµРЅРёРµ РїРѕР»РµР№
+        // Добавление полей
         foreach (var fieldDto in dto.Fields.OrderBy(f => f.Order))
         {
-            // Р’Р°Р»РёРґР°С†РёСЏ РґР»СЏ Enum РїРѕР»РµР№
+            // Валидация для Enum полей
             if ((FieldDataType)fieldDto.DataType == FieldDataType.Enum)
             {
-                // РџСЂРѕРІРµСЂРєР° С‡С‚Рѕ РїРµСЂРµРґР°РЅС‹ Р·РЅР°С‡РµРЅРёСЏ Enum
+                // Проверка что переданы значения Enum
                 if (fieldDto.EnumValues == null || !fieldDto.EnumValues.Any())
                 {
                     throw new InvalidOperationException(
                         $"Enum field '{fieldDto.Name}' must have at least one value in EnumValues");
                 }
 
-                // РџСЂРѕРІРµСЂРєР° С‡С‚Рѕ РІСЃРµ Р·РЅР°С‡РµРЅРёСЏ РЅРµ РїСѓСЃС‚С‹Рµ
+                // Проверка что все значения не пустые
                 if (fieldDto.EnumValues.Any(string.IsNullOrWhiteSpace))
                 {
                     throw new InvalidOperationException(
                         $"Enum field '{fieldDto.Name}' cannot have empty values in EnumValues");
                 }
 
-                // РџСЂРѕРІРµСЂРєР° РЅР° РґСѓР±Р»РёРєР°С‚С‹ (РѕРїС†РёРѕРЅР°Р»СЊРЅРѕ)
+                // Проверка на дубликаты (опционально)
                 if (fieldDto.EnumValues.Distinct().Count() != fieldDto.EnumValues.Count)
                 {
                     throw new InvalidOperationException(
@@ -66,7 +83,7 @@ public class CreateDirectoryTypeCommand
             }
             else
             {
-                // Р”Р»СЏ РЅРµ-Enum РїРѕР»РµР№ EnumValues РґРѕР»Р¶РµРЅ Р±С‹С‚СЊ null РёР»Рё РїСѓСЃС‚С‹Рј
+                // Для не-Enum полей EnumValues должен быть null или пустым
                 if (fieldDto.EnumValues != null && fieldDto.EnumValues.Any())
                 {
                     throw new InvalidOperationException(
@@ -74,21 +91,19 @@ public class CreateDirectoryTypeCommand
                 }
             }
 
-            // РџСЂРѕРІРµСЂРєР° СЃСѓС‰РµСЃС‚РІРѕРІР°РЅРёСЏ СЃСЃС‹Р»РѕС‡РЅРѕРіРѕ СЃРїСЂР°РІРѕС‡РЅРёРєР°
+             // Проверка существования ссылочного справочника
             if (fieldDto.DataType == (int)FieldDataType.Reference && fieldDto.ReferenceDirectoryTypeId.HasValue)
             {
                 var referenceType = await _repository.GetByIdAsync(
-                    fieldDto.ReferenceDirectoryTypeId.Value, 
+                    fieldDto.ReferenceDirectoryTypeId.Value,
                     cancellationToken);
-                
+
                 if (referenceType == null)
                 {
                     throw new InvalidOperationException(
                         $"Reference directory type with ID '{fieldDto.ReferenceDirectoryTypeId}' not found");
                 }
             }
-
-
 
             var field = new DirectoryField(
                 directoryType.Id,
@@ -105,13 +120,13 @@ public class CreateDirectoryTypeCommand
             directoryType.AddField(field);
         }
 
-        // РЎРѕС…СЂР°РЅРµРЅРёРµ РІ Р‘Р”
+        // Сохранение в БД
         var savedDirectoryType = await _repository.AddAsync(directoryType, cancellationToken);
 
-        // РЎРѕР·РґР°РЅРёРµ С„РёР·РёС‡РµСЃРєРѕР№ С‚Р°Р±Р»РёС†С‹ РІ Р‘Р”
+        // Создание физической таблицы в БД
         await _dynamicTableService.CreateTableAsync(savedDirectoryType, cancellationToken);
 
-        // РњР°РїРїРёРЅРі РІ DTO
+        // Маппинг в DTO
         return MapToDto(savedDirectoryType);
     }
 
@@ -122,6 +137,7 @@ public class CreateDirectoryTypeCommand
             directoryType.Name,
             directoryType.TableName,
             directoryType.Description,
+            directoryType.DirectoryGroup?.Name,
             directoryType.Fields.Select(f => new DirectoryFieldDto(
                 f.Id,
                 f.Name,
@@ -133,7 +149,7 @@ public class CreateDirectoryTypeCommand
                 f.ReferenceDirectoryTypeId,
                 f.ReferenceDirectoryType?.Name,
                 f.EnumValues,
-                null // CollectionData РЅРµ Р·Р°РіСЂСѓР¶Р°РµС‚СЃСЏ РїСЂРё СЃРѕР·РґР°РЅРёРё
+                null // CollectionData не загружается при создании
             )).ToList()
         );
     }
