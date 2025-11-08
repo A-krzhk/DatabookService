@@ -18,6 +18,7 @@ public record DirectoryFieldDto(
     bool IsCollection,
     Guid? ReferenceDirectoryTypeId,
     string? ReferenceDirectoryTypeName,
+    List<string>? EnumValues,
     List<CollectionItemDto>? CollectionData
 );
 
