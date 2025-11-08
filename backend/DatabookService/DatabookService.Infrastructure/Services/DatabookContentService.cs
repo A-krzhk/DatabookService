@@ -2,6 +2,7 @@
 using DatabookService.Domain.Entities;
 using DatabookService.Domain.Enums;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using Npgsql;
 using System.Text.Json;
 
@@ -9,54 +10,209 @@ public class DatabookContentService : IDatabookContentService
 {
     private readonly string _connectionString;
     private readonly ITypesValidationService _typesValidationService;
+    private readonly ILogger<DatabookContentService> _logger;
 
-        public DatabookContentService(
-            IConfiguration configuration,
-            ITypesValidationService typesValidationService) 
+    public DatabookContentService(
+        IConfiguration configuration,
+        ITypesValidationService typesValidationService,
+        ILogger<DatabookContentService> logger)
+    {
+        _connectionString = configuration.GetConnectionString("DefaultConnection");
+        _typesValidationService = typesValidationService;
+        _logger = logger;
+    }
+
+    public async Task<Guid?> InsertValues(
+        DirectoryType table,
+        IReadOnlyCollection<DirectoryField> expectedFields,
+        Dictionary<string, object> actualFields,
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+
+        try
         {
-            _connectionString = configuration.GetConnectionString("DefaultConnection");
-            _typesValidationService = typesValidationService;
-        }
+            // Разделяем поля на обычные и коллекционные
+            var mainFields = expectedFields
+                .Where(f => !f.IsCollection && actualFields.ContainsKey(f.ColumnName))
+                .ToList();
 
-        public async Task<Guid?> InsertValues(
-            DirectoryType table,
-            IReadOnlyCollection<DirectoryField> expectedFields,
-            Dictionary<string, object> actualFields,
-            CancellationToken cancellationToken = default)
-        {
-            await using var connection = new NpgsqlConnection(_connectionString);
-            await connection.OpenAsync(cancellationToken);
+            var collectionFields = expectedFields
+                .Where(f => f.IsCollection && actualFields.ContainsKey(f.ColumnName))
+                .ToList();
 
-            using var transaction = await connection.BeginTransactionAsync(cancellationToken);
-            int result = 0;
-            try
+            // Создаем словарь только с НЕ коллекционными полями для основной записи
+            var mainFieldsValues = actualFields
+                .Where(kvp => mainFields.Any(f => f.ColumnName == kvp.Key))
+                .ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+
+            _logger.LogInformation("Inserting main record into {TableName} with {FieldCount} fields", 
+                table.TableName, mainFieldsValues.Count);
+
+            // Вставляем основную запись (только НЕ коллекционные поля)
+            var recordId = await InsertMainRecord(
+                table.TableName,
+                mainFields,
+                mainFieldsValues,
+                connection,
+                transaction,
+                cancellationToken);
+
+            if (recordId == null)
             {
-                // Вставляем основную запись (Не коллекционные поля)
-                var mainFields = expectedFields
-                                 .Where(f => !f.IsCollection && actualFields.ContainsKey(f.ColumnName));
-                Guid? recordId = null;
-                recordId = (Guid)await InsertMainRecord(table.TableName, expectedFields, actualFields, connection, transaction, cancellationToken);
+                throw new InvalidOperationException("Failed to insert main record - recordId is null");
+            }
+
+            _logger.LogInformation("Successfully inserted main record with ID {RecordId}", recordId);
 
             // Вставляем коллекционные поля (если есть)
-            var collectionFields = expectedFields
-                .Where(f => f.IsCollection && actualFields.ContainsKey(f.ColumnName));
-
-                //Если полей-коллекций нет, то и вставляться ничего не будет
-                foreach (var field in collectionFields)
-                {
-                    var values = actualFields[field.ColumnName];
-                    await InsertCollectionItems(table.TableName, (Guid)recordId, field, values, connection, transaction, cancellationToken);
-                }
-                
-                await transaction.CommitAsync(cancellationToken);               
-                return recordId;
-            }
-            catch
+            foreach (var field in collectionFields)
             {
-                await transaction.RollbackAsync(cancellationToken);
-                throw;
+                if (actualFields.TryGetValue(field.ColumnName, out var values))
+                {
+                    _logger.LogInformation("Inserting collection items for field {FieldName}", field.ColumnName);
+                    
+                    await InsertCollectionItems(
+                        table.TableName,
+                        recordId.Value,
+                        field,
+                        values,
+                        connection,
+                        transaction,
+                        cancellationToken);
+                }
+            }
+
+            await transaction.CommitAsync(cancellationToken);
+            
+            _logger.LogInformation("Transaction committed successfully for record {RecordId}", recordId);
+            
+            return recordId;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error inserting values into table {TableName}. Rolling back transaction.", table.TableName);
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
+
+    private async Task<Guid?> InsertMainRecord(
+        string tableName,
+        IReadOnlyCollection<DirectoryField> expectedFields,
+        Dictionary<string, object> actualFields,
+        NpgsqlConnection connection,
+        NpgsqlTransaction transaction,
+        CancellationToken cancellationToken)
+    {
+        var regularFields = expectedFields
+            .Where(f => !f.IsCollection && actualFields.ContainsKey(f.ColumnName))
+            .ToList();
+
+        var recordId = Guid.NewGuid();
+        var now = DateTime.UtcNow;
+
+        // Служебные поля - ОБЯЗАТЕЛЬНО добавляем!
+        var columns = new List<string> { "\"Id\"", "\"CreatedAt\"", "\"UpdatedAt\"", "\"IsDeleted\"" };
+        var paramNames = new List<string> { "@id", "@createdAt", "@updatedAt", "@isDeleted" };
+        
+        var parameters = new List<NpgsqlParameter>
+        {
+            new NpgsqlParameter("@id", recordId),
+            new NpgsqlParameter("@createdAt", now),
+            new NpgsqlParameter("@updatedAt", now),
+            new NpgsqlParameter("@isDeleted", false)
+        };
+
+        // Добавляем пользовательские поля
+        foreach (var field in regularFields)
+        {
+            columns.Add($"\"{field.ColumnName}\"");
+            var paramName = $"@p_{field.ColumnName}";
+            paramNames.Add(paramName);
+            
+            var value = _typesValidationService.ConvertJsonToCorrectType(
+                field,
+                actualFields[field.ColumnName] ?? DBNull.Value);
+            
+            parameters.Add(new NpgsqlParameter(paramName, value ?? DBNull.Value));
+        }
+
+        var sql = $@"INSERT INTO ""{tableName}"" ({string.Join(", ", columns)}) 
+                     VALUES ({string.Join(", ", paramNames)}) 
+                     RETURNING ""Id""";
+
+        _logger.LogInformation("Executing SQL: {SQL}", sql);
+
+        await using var command = new NpgsqlCommand(sql, connection, transaction);
+        command.Parameters.AddRange(parameters.ToArray());
+        
+        try
+        {
+            var result = await command.ExecuteScalarAsync(cancellationToken);
+            return result as Guid?;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to execute INSERT command. SQL: {SQL}", sql);
+            throw;
+        }
+    }
+
+    private async Task InsertCollectionItems(
+        string tableName,
+        Guid mainRecordId,
+        DirectoryField field,
+        object values,
+        NpgsqlConnection connection,
+        NpgsqlTransaction transaction,
+        CancellationToken cancellationToken)
+    {
+        var collectionTableName = $"{tableName}_{field.ColumnName}";
+
+        if (values is JsonElement element && element.ValueKind == JsonValueKind.Array)
+        {
+            var array = element.EnumerateArray();
+            int index = 0;
+            foreach (var item in array)
+            {
+                await InsertCollectionItem(collectionTableName, mainRecordId, field, item, index++, connection,
+                    transaction, cancellationToken);
             }
         }
+    }
+
+    private async Task InsertCollectionItem(
+        string collectionTableName,
+        Guid mainRecordId,
+        DirectoryField field,
+        object value,
+        int sortOrder,
+        NpgsqlConnection connection,
+        NpgsqlTransaction transaction,
+        CancellationToken cancellationToken)
+    {
+        var valueColumnName = field.DataType == FieldDataType.Reference
+            ? $"{field.ReferenceDirectoryType.TableName}Id"
+            : "Value";
+
+        var sql = $@"INSERT INTO ""{collectionTableName}"" 
+                         (""IdField"", ""IdRecord"", ""{valueColumnName}"", ""SortOrder"")
+                         VALUES (@id_field, @id_record, @value, @sort_order)";
+
+        var dbValue = _typesValidationService.ConvertJsonToCorrectType(field, value);
+
+        await using var command = new NpgsqlCommand(sql, connection, transaction);
+        command.Parameters.AddWithValue("@id_field", field.Id);
+        command.Parameters.AddWithValue("@id_record", mainRecordId);
+        command.Parameters.AddWithValue("@value", dbValue ?? DBNull.Value);
+        command.Parameters.AddWithValue("@sort_order", sortOrder);
+
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
 
     public async Task UpdateValues(
         DirectoryType table,
@@ -139,101 +295,6 @@ public class DatabookContentService : IDatabookContentService
         }
     }
 
-    private async Task<Guid?> InsertMainRecord(
-        string tableName,
-        IReadOnlyCollection<DirectoryField> expectedFields,
-        Dictionary<string, object> actualFields,
-        NpgsqlConnection connection,
-        NpgsqlTransaction transaction,
-        CancellationToken cancellationToken)
-    {
-        var regularFields = expectedFields
-            .Where(f => !f.IsCollection && actualFields.ContainsKey(f.ColumnName))
-            .ToList();
-
-        string sql;
-        object result;
-
-        if (regularFields.Any())
-        {
-            var columnNames = string.Join(", ", regularFields.Select(f => $@"""{f.ColumnName}"""));
-            var parameterNames = string.Join(", ", regularFields.Select(f => $"@p_{f.ColumnName}"));
-
-            sql = $@"INSERT INTO ""{tableName}"" ({columnNames}) VALUES ({parameterNames}) RETURNING ""Id""";
-
-            var parameters = regularFields.Select(f =>
-            {
-                var value = _typesValidationService.ConvertJsonToCorrectType(f,
-                    actualFields[f.ColumnName] ?? DBNull.Value);
-                return new NpgsqlParameter($"@p_{f.ColumnName}", value);
-            }).ToArray();
-
-            await using var command = new NpgsqlCommand(sql, connection, transaction);
-            command.Parameters.AddRange(parameters);
-            result = await command.ExecuteScalarAsync(cancellationToken);
-        }
-        else
-        {
-            sql = $@"INSERT INTO ""{tableName}"" (""Id"") VALUES (gen_random_uuid()) RETURNING ""Id""";
-            await using var command = new NpgsqlCommand(sql, connection, transaction);
-            result = await command.ExecuteScalarAsync(cancellationToken);
-        }
-
-        return result as Guid?;
-    }
-
-    private async Task InsertCollectionItems(
-        string tableName,
-        Guid mainRecordId,
-        DirectoryField field,
-        object values,
-        NpgsqlConnection connection,
-        NpgsqlTransaction transaction,
-        CancellationToken cancellationToken)
-    {
-        var collectionTableName = $"{tableName}_{field.ColumnName}";
-
-        if (values is JsonElement element && element.ValueKind == JsonValueKind.Array)
-        {
-            var array = element.EnumerateArray();
-            int index = 0;
-            foreach (var item in array)
-            {
-                await InsertCollectionItem(collectionTableName, mainRecordId, field, item, index++, connection,
-                    transaction, cancellationToken);
-            }
-        }
-    }
-
-    private async Task InsertCollectionItem(
-        string collectionTableName,
-        Guid mainRecordId,
-        DirectoryField field,
-        object value,
-        int sortOrder,
-        NpgsqlConnection connection,
-        NpgsqlTransaction transaction,
-        CancellationToken cancellationToken)
-    {
-        var valueColumnName = field.DataType == FieldDataType.Reference
-            ? $"{field.ReferenceDirectoryType.TableName}Id"
-            : "Value";
-
-        var sql = $@"INSERT INTO ""{collectionTableName}"" 
-                         (""IdField"", ""IdRecord"", ""{valueColumnName}"", ""SortOrder"")
-                         VALUES (@id_field, @id_record, @value, @sort_order)";
-
-        var dbValue = _typesValidationService.ConvertJsonToCorrectType(field, value);
-
-        await using var command = new NpgsqlCommand(sql, connection, transaction);
-        command.Parameters.AddWithValue("@id_field", field.Id);
-        command.Parameters.AddWithValue("@id_record", mainRecordId);
-        command.Parameters.AddWithValue("@value", dbValue ?? DBNull.Value);
-        command.Parameters.AddWithValue("@sort_order", sortOrder);
-
-        await command.ExecuteNonQueryAsync(cancellationToken);
-    }
-
     private async Task DeleteCollectionItems(
         string tableName,
         Guid recordId,
@@ -261,13 +322,11 @@ public class DatabookContentService : IDatabookContentService
         await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
 
-        // Основная таблица
         var regularFields = fields.Where(f => !f.IsCollection).ToList();
         var columnNames = string.Join(", ", regularFields.Select(f => $"\"{f.ColumnName}\""));
 
         var sql = $"SELECT \"Id\", {columnNames} FROM \"{tableName}\" WHERE \"IsDeleted\" = FALSE";
 
-        // Добавляем пагинацию, если указаны параметры
         if (pageNumber.HasValue && pageSize.HasValue)
         {
             var offset = (pageNumber.Value - 1) * pageSize.Value;
@@ -287,7 +346,6 @@ public class DatabookContentService : IDatabookContentService
             }
         }
 
-        // Теперь подгружаем коллекционные поля
         var collectionFields = fields.Where(f => f.IsCollection).ToList();
         foreach (var record in result)
         {
@@ -327,7 +385,6 @@ public class DatabookContentService : IDatabookContentService
         return result;
     }
 
-
     public async Task<Dictionary<string, object>?> GetRecordByIdAsync(
         string tableName,
         Guid id,
@@ -353,7 +410,6 @@ public class DatabookContentService : IDatabookContentService
                 result[reader.GetName(i)] = reader.IsDBNull(i) ? null! : reader.GetValue(i);
         }
 
-        // Загрузка коллекций
         var collectionFields = fields.Where(f => f.IsCollection).ToList();
         foreach (var field in collectionFields)
         {
@@ -406,7 +462,6 @@ public class DatabookContentService : IDatabookContentService
         var regularFields = fields.Where(f => !f.IsCollection).ToList();
         var collectionFields = fields.Where(f => f.IsCollection).ToList();
 
-        // Формируем список колонок
         var columns = new List<string> { "\"Id\"", "\"CreatedAt\"", "\"UpdatedAt\"", "\"DeletedDate\"" };
         if (regularFields.Any())
         {
@@ -419,7 +474,6 @@ public class DatabookContentService : IDatabookContentService
                         WHERE ""IsDeleted"" = TRUE
                         ORDER BY ""DeletedDate"" DESC";
 
-        // Добавляем пагинацию
         if (pageNumber.HasValue && pageSize.HasValue)
         {
             var offset = (pageNumber.Value - 1) * pageSize.Value;
@@ -435,7 +489,6 @@ public class DatabookContentService : IDatabookContentService
             {
                 var row = new Dictionary<string, object>();
 
-                // Читаем служебные поля
                 row["Id"] = reader.GetValue(reader.GetOrdinal("Id"));
                 row["CreatedAt"] = reader.GetValue(reader.GetOrdinal("CreatedAt"));
                 row["UpdatedAt"] = reader.IsDBNull(reader.GetOrdinal("UpdatedAt"))
@@ -445,7 +498,6 @@ public class DatabookContentService : IDatabookContentService
                     ? null!
                     : reader.GetValue(reader.GetOrdinal("DeletedDate"));
 
-                // Читаем обычные поля
                 foreach (var field in regularFields)
                 {
                     var ordinal = reader.GetOrdinal(field.ColumnName);
@@ -456,7 +508,6 @@ public class DatabookContentService : IDatabookContentService
             }
         }
 
-        // Подгружаем коллекционные поля
         foreach (var record in result)
         {
             var id = (Guid)record["Id"];
@@ -506,7 +557,6 @@ public class DatabookContentService : IDatabookContentService
         return Convert.ToInt32(result);
     }
 
-
     public async Task<bool> RestoreRecordAsync(
         string tableName,
         Guid recordId,
@@ -529,4 +579,3 @@ public class DatabookContentService : IDatabookContentService
         return affectedRows > 0;
     }
 }
-
