@@ -152,7 +152,7 @@ function App() {
   const handleGroupRename = async (groupId, nextName) => {
     const trimmed = (nextName ?? '').trim()
     if (!trimmed) {
-      setGroupModalError('Group name cannot be empty')
+      setGroupModalError('Название группы не может быть пустым')
       return
     }
     try {
@@ -170,7 +170,7 @@ function App() {
 
   const handleGroupDelete = async (groupId) => {
     if (!groupId) {
-      setGroupModalError('Group id is missing')
+      setGroupModalError('Не указан идентификатор группы')
       return
     }
     try {
@@ -232,6 +232,7 @@ function App() {
             directoryTypes={directoryTypes}
             onBack={backToRecords}
             onUpdated={refetch}
+            groups={groups}
           />
         )
       case VIEW.RECORD_DETAIL:

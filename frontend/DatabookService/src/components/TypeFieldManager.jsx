@@ -22,6 +22,7 @@ export function TypeFieldManager({
   directoryTypes,
   onBack,
   onUpdated,
+  groups = [],
 }) {
   const [fields, setFields] = useState(
     (type.fields ?? []).map(normalizeFieldShape),
@@ -33,11 +34,23 @@ export function TypeFieldManager({
   const [editingFieldId, setEditingFieldId] = useState(null)
   const [editDraft, setEditDraft] = useState({ name: '', order: 1, isRequired: false })
   const [editing, setEditing] = useState(false)
+  const [groupDraft, setGroupDraft] = useState(type.directoryGroupId ?? '')
+  const [groupSaving, setGroupSaving] = useState(false)
+  const [groupError, setGroupError] = useState('')
+  const [groupSuccess, setGroupSuccess] = useState('')
+  const currentGroupId = type.directoryGroupId ?? ''
+  const isGroupDirty = groupDraft !== currentGroupId
 
   useEffect(() => {
     setFields((type.fields ?? []).map(normalizeFieldShape))
   }, [type])
 
+  useEffect(() => {
+    setGroupDraft(type.directoryGroupId ?? '')
+    setGroupError('')
+    setGroupSuccess('')
+  }, [type.id, type.directoryGroupId])
+  
   const sortedFields = useMemo(
     () => [...fields].sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
     [fields],
@@ -59,6 +72,26 @@ export function TypeFieldManager({
   const resetAddFieldDraft = () => {
     setAddFieldDraft(newFieldTemplate)
     setAddError('')
+  }
+
+  const handleGroupSubmit = async (event) => {
+    event.preventDefault()
+    setGroupError('')
+    setGroupSuccess('')
+    try {
+      setGroupSaving(true)
+      await apiRequest(`/api/directory-types/${type.id}/group`, {
+        method: 'PUT',
+        apiKey,
+        body: { directoryGroupId: groupDraft || null },
+      })
+      setGroupSuccess('Группа обновлена')
+      await onUpdated?.()
+    } catch (requestError) {
+      setGroupError(requestError.message ?? 'Не удалось обновить группу')
+    } finally {
+      setGroupSaving(false)
+    }
   }
 
   const handleAddField = async (event) => {
@@ -227,6 +260,36 @@ export function TypeFieldManager({
 
       {error && <div className="panel__error">{error}</div>}
 
+      <div className="manager__settings">
+        <h3>Настройка типа</h3>
+        <form className="inline-form" onSubmit={handleGroupSubmit}>
+          <label>
+            Группа доступов
+            <select
+              value={groupDraft}
+              onChange={(event) => setGroupDraft(event.target.value)}
+              disabled={groupSaving}
+            >
+              <option value="">Без группы</option>
+              {groups.map((group) => (
+                <option key={group.id} value={group.id}>
+                  {group.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          {groupError && <div className="panel__error">{groupError}</div>}
+          {groupSuccess && <p className="manager__hint">{groupSuccess}</p>}
+          <button
+            type="submit"
+            className="secondary-button"
+            disabled={!isGroupDirty || groupSaving}
+          >
+            {groupSaving ? 'Сохранение...' : 'Сохранить'}
+          </button>
+        </form>
+      </div>
+
       <div className="manager">
         <div className="manager__list">
           <h3>Существующие поля</h3>
@@ -256,24 +319,24 @@ export function TypeFieldManager({
                   <td>{field.columnName}</td>
                   <td>{getFieldTypeLabel(field.dataType)}</td>
                   <td>{field.isRequired ? 'Да' : 'Нет'}</td>
-                    <td>
-                      <div className="table-actions">
-                        <button
-                          type="button"
-                          className="ghost-button manager__table-button"
-                          onClick={() => startEditField(field)}
-                        >
-                          Изменить
-                        </button>
-                        <button
-                          type="button"
-                          className="ghost-button manager__table-button manager__table-button--danger"
-                          onClick={() => handleDeleteField(field.id)}
-                        >
-                          Удалить
-                        </button>
-                      </div>
-                    </td>
+                  <td>
+                    <div className="table-actions">
+                      <button
+                        type="button"
+                        className="ghost-button manager__table-button"
+                        onClick={() => startEditField(field)}
+                      >
+                        Изменить
+                      </button>
+                      <button
+                        type="button"
+                        className="ghost-button manager__table-button manager__table-button--danger"
+                        onClick={() => handleDeleteField(field.id)}
+                      >
+                        Удалить
+                      </button>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>

@@ -158,7 +158,7 @@ function useReferenceOptions(apiKey, directoryTypeId) {
     setLoading(!cached)
     setError('')
 
-    fetchReferenceOptions(apiKey, directoryTypeId)
+    fetchReferenceOptions(apiKey, directoryTypeId, undefined, { force: true })
       .then((fetched) => {
         if (!cancelled) {
           setOptions(fetched)

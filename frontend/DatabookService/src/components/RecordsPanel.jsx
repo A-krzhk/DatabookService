@@ -425,20 +425,32 @@ export function RecordsPanel({
 }
 
 const renderCell = (value) => {
-  if (value === null || value === undefined) return 'â€”'
+  if (value === null || value === undefined) return '-'
   if (Array.isArray(value)) return value.join(', ')
   if (value instanceof Date) return formatDateValue(value)
   if (typeof value === 'string') {
-    const parsed = Date.parse(value)
-    if (!Number.isNaN(parsed)) {
-      return formatDateValue(new Date(parsed))
+    const trimmed = value.trim()
+    if (trimmed && isLikelyDateString(trimmed)) {
+      const parsed = Date.parse(trimmed)
+      if (!Number.isNaN(parsed)) {
+        return formatDateValue(new Date(parsed))
+      }
     }
+    return trimmed
   }
   if (typeof value === 'object') return JSON.stringify(value)
-  if (typeof value === 'boolean') return value ? 'Ð”Ð°' : 'ÐÐµÑ‚'
+  if (typeof value === 'boolean') return value ? 'Äà' : 'Íåò'
   return String(value)
 }
 
+const datePatterns = [
+  /^\d{4}-\d{2}-\d{2}(?:[T\s]\d{2}:\d{2}(?::\d{2})?)?$/,
+  /^\d{2}\.\d{2}\.\d{4}(?:\s+\d{2}:\d{2}(?::\d{2})?)?$/,
+  /^\d{4}\/\d{2}\/\d{2}/,
+]
+
+const isLikelyDateString = (value) =>
+  datePatterns.some((pattern) => pattern.test(value))
 const formatDateValue = (date) =>
   date.toLocaleString([], {
     year: 'numeric',

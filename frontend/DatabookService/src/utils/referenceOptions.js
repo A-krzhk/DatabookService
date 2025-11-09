@@ -23,11 +23,13 @@ export const fetchReferenceOptions = async (
   apiKey,
   directoryTypeId,
   searchParams = { page: 1, size: 50 },
+  options = {},
 ) => {
   if (!apiKey?.trim() || !directoryTypeId) return []
 
   const cacheKey = buildCacheKey(apiKey, directoryTypeId)
-  if (referenceCache.has(cacheKey)) {
+  const force = Boolean(options.force)
+  if (!force && referenceCache.has(cacheKey)) {
     return referenceCache.get(cacheKey)
   }
 
@@ -36,11 +38,10 @@ export const fetchReferenceOptions = async (
     searchParams,
   })
 
-  const options = mapReferenceOptions(response)
-  referenceCache.set(cacheKey, options)
-  return options
+  const optionsList = mapReferenceOptions(response)
+  referenceCache.set(cacheKey, optionsList)
+  return optionsList
 }
-
 export const mapReferenceOptions = (response) => {
   const columns = response?.columns ?? response?.Columns ?? []
   const rows = response?.data ?? response?.Data ?? []
