@@ -16,7 +16,7 @@ export function GroupModal({
   error,
   groups = [],
   onCreate,
-  onRename,
+  onUpdate,
   onDelete,
   onClose,
 }) {
@@ -43,8 +43,8 @@ export function GroupModal({
     onCreate?.(name)
   }
 
-  const handleRename = (groupId) => {
-    onRename?.(groupId, drafts[groupId] ?? '')
+  const handleUpdate = (groupId) => {
+    onUpdate?.(groupId, drafts[groupId] ?? '')
   }
 
   const handleDelete = (groupId) => {
@@ -52,7 +52,7 @@ export function GroupModal({
     const confirmed =
       typeof window === 'undefined'
         ? true
-        : window.confirm('Delete this group and unassign its directory types?')
+        : window.confirm('Удалить группу и отвязать от пользователей?')
     if (confirmed) {
       onDelete?.(groupId)
     }
@@ -62,20 +62,20 @@ export function GroupModal({
     <div className="modal-backdrop">
       <div className="modal" role="dialog" aria-modal="true">
         <div className="modal__header">
-          <h3>Manage directory groups</h3>
+          <h3>Управление группами пользователей</h3>
           <button type="button" className="ghost-button" onClick={onClose}>
-            Close
+            Закрыть
           </button>
         </div>
         <p className="muted">
-          Rename existing groups or create a new one for your directory types.
+          Группировать пользователей можно для удобного поиска или назначения прав.
         </p>
         {error && <div className="panel__error">{error}</div>}
 
         <section className="modal__section">
-          <h4>Existing groups</h4>
+          <h4>Существующие группы</h4>
           {!normalizedGroups.length && (
-            <p className="muted">No groups yet.</p>
+            <p className="muted">Пока нет ни одной группы.</p>
           )}
           <div className="group-modal__list">
             {normalizedGroups.map((group) => (
@@ -95,10 +95,10 @@ export function GroupModal({
                   <button
                     type="button"
                     className="secondary-button"
-                    onClick={() => handleRename(group.id)}
+                    onClick={() => handleUpdate(group.id)}
                     disabled={loading || !(drafts[group.id] ?? '').trim()}
                   >
-                    Rename
+                    Переименовать
                   </button>
                   <button
                     type="button"
@@ -106,7 +106,7 @@ export function GroupModal({
                     onClick={() => handleDelete(group.id)}
                     disabled={loading}
                   >
-                    Delete
+                    Удалить
                   </button>
                 </div>
               </div>
@@ -115,14 +115,14 @@ export function GroupModal({
         </section>
 
         <section className="modal__section">
-          <h4>Create new group</h4>
+          <h4>Создание группы</h4>
           <label>
-            Group name
+            Название группы
             <input
               type="text"
               value={name}
               onChange={(event) => setName(event.target.value)}
-              placeholder="Finance, HR, Operations..."
+              placeholder="Например, HR, Бухгалтер..."
               disabled={loading}
             />
           </label>
@@ -130,7 +130,7 @@ export function GroupModal({
 
         <div className="modal__actions">
           <button type="button" className="ghost-button" onClick={onClose}>
-            Cancel
+            Отмена
           </button>
           <button
             type="button"
@@ -138,7 +138,7 @@ export function GroupModal({
             onClick={handleCreate}
             disabled={!name.trim() || loading}
           >
-            {loading ? 'Saving�' : 'Create group'}
+            {loading ? 'Сохранение…' : 'Создать группу'}
           </button>
         </div>
       </div>

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { apiRequest } from '../api/httpClient'
 import { getFieldTypeLabel } from '../constants/fieldDataTypes'
+import { clearReferenceOptionsCache } from '../utils/referenceOptions'
 import {
   buildInitialValues,
   buildPayload,
@@ -47,6 +48,7 @@ export function RecordForm({ apiKey, type, onCancel, onCreated }) {
         body: payload,
       })
 
+      clearReferenceOptionsCache(type.id, apiKey)
       onCreated?.()
     } catch (requestError) {
       setError(requestError.message)

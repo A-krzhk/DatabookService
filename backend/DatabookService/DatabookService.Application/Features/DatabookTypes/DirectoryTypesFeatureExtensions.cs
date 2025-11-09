@@ -19,6 +19,7 @@ public static class DirectoryTypesFeatureExtensions
         services.AddScoped<AddFieldCommand>();
         services.AddScoped<RemoveFieldCommand>();
         services.AddScoped<UpdateFieldCommand>();
+        services.AddScoped<UpdateDirectoryTypeGroupCommand>();
         return services;
     }
 
@@ -39,5 +40,8 @@ public static class DirectoryTypesFeatureExtensions
 
         var updateFieldEndpoint = new UpdateFieldEndpoint();
         updateFieldEndpoint.MapEndpoint(app);
+
+        var updateGroupEndpoint = new UpdateDirectoryTypeGroupEndpoint();
+        updateGroupEndpoint.MapEndpoint(app);
     }
 }
