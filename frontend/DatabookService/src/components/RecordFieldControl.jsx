@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { apiRequest } from '../api/httpClient'
 import { FieldDataType } from '../constants/fieldDataTypes'
 import { CollectionInput } from './CollectionInput'
-
-const referenceCache = new Map()
+import {
+  fetchReferenceOptions,
+  getCachedReferenceOptions,
+} from '../utils/referenceOptions'
 
 const getKey = (field) => field?.columnName ?? field?.ColumnName
 const getType = (field) => field?.dataType ?? field?.DataType
@@ -148,33 +149,31 @@ function useReferenceOptions(apiKey, directoryTypeId) {
       return
     }
 
-    const cacheKey = `${directoryTypeId}`
-    if (referenceCache.has(cacheKey)) {
-      setOptions(referenceCache.get(cacheKey))
-      return
+    const cached = getCachedReferenceOptions(apiKey, directoryTypeId)
+    if (cached) {
+      setOptions(cached)
     }
 
     let cancelled = false
-    setLoading(true)
+    setLoading(!cached)
     setError('')
 
-    apiRequest(`/api/directory-record/${directoryTypeId}/all`, {
-      apiKey,
-      searchParams: { page: 1, size: 50 },
-    })
-      .then((response) => {
-        if (cancelled) return
-        const mapped = mapReferenceOptions(response)
-        referenceCache.set(cacheKey, mapped)
-        setOptions(mapped)
+    fetchReferenceOptions(apiKey, directoryTypeId)
+      .then((fetched) => {
+        if (!cancelled) {
+          setOptions(fetched)
+        }
       })
       .catch((err) => {
-        if (cancelled) return
-        setError(err.message ?? 'Не удалось загрузить список')
-        setOptions([])
+        if (!cancelled) {
+          setError(err.message ?? 'Unable to load reference options')
+          setOptions([])
+        }
       })
       .finally(() => {
-        if (!cancelled) setLoading(false)
+        if (!cancelled) {
+          setLoading(false)
+        }
       })
 
     return () => {
@@ -183,64 +182,4 @@ function useReferenceOptions(apiKey, directoryTypeId) {
   }, [apiKey, directoryTypeId])
 
   return { options, loading, error }
-}
-
-const mapReferenceOptions = (response) => {
-  const columns = response?.columns ?? response?.Columns ?? []
-  const rows = response?.data ?? response?.Data ?? []
-  const labelKey = pickLabelKey(columns)
-
-  return rows.map((row, index) => {
-    const id =
-      row.Id ??
-      row.id ??
-      row.ID ??
-      row[labelKey] ??
-      `row-${index}`
-    const label =
-      row[labelKey] ??
-      row.Name ??
-      row.name ??
-      row.Title ??
-      row.title ??
-      String(id)
-
-    return { id, label }
-  })
-}
-
-const pickLabelKey = (columns) => {
-  if (!columns.length) return ''
-  const normalized = columns.map((column) => {
-    const key = column.fieldName ?? column.FieldName ?? ''
-    const dataType = (column.dataType ?? column.DataType ?? '').toLowerCase()
-    return { key, dataType }
-  })
-
-  const withoutId = normalized.filter(
-    (column) => column.key && column.key.toLowerCase() !== 'id',
-  )
-
-  const isStringType = (type) =>
-    ['string', 'varchar', 'text', 'json', 'char'].includes(type)
-
-  const nameLike = withoutId.find((column) =>
-    column.key.toLowerCase().includes('name'),
-  )
-
-  const stringColumn = withoutId.find((column) => isStringType(column.dataType))
-
-  const firstStringName = withoutId.find(
-    (column) =>
-      isStringType(column.dataType) &&
-      column.key.toLowerCase().includes('title'),
-  )
-
-  return (
-    (nameLike && nameLike.key) ||
-    (stringColumn && stringColumn.key) ||
-    (firstStringName && firstStringName.key) ||
-    (withoutId[0] && withoutId[0].key) ||
-    normalized[0].key
-  )
 }

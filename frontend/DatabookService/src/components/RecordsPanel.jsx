@@ -1,6 +1,10 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { apiRequest, buildApiUrl } from '../api/httpClient'
 import { Pagination } from './Pagination'
+import {
+  fetchReferenceOptions,
+  getCachedReferenceOptions,
+} from '../utils/referenceOptions'
 
 const PAGE_SIZE = 20
 
@@ -30,7 +34,33 @@ export function RecordsPanel({
   const [version, setVersion] = useState(0)
   const [importing, setImporting] = useState(false)
   const [exporting, setExporting] = useState(false)
+  const [referenceLookups, setReferenceLookups] = useState({})
   const fileInputRef = useRef(null)
+  const referenceColumns = useMemo(
+    () =>
+      columns
+        .map((column) => {
+          const key = column.fieldName ?? column.FieldName ?? null
+          const reference = column.reference ?? column.Reference ?? null
+          const directoryTypeId =
+            reference?.directoryTypeId ?? reference?.DirectoryTypeId ?? null
+          if (!key || !directoryTypeId) return null
+          return {
+            key,
+            directoryTypeId,
+            isCollection: column.isCollection ?? column.IsCollection ?? false,
+          }
+        })
+        .filter(Boolean),
+    [columns],
+  )
+  const referenceColumnsMap = useMemo(() => {
+    const map = new Map()
+    referenceColumns.forEach((column) => {
+      map.set(column.key, column)
+    })
+    return map
+  }, [referenceColumns])
 
   useEffect(() => {
     setPage(1)
@@ -81,6 +111,66 @@ export function RecordsPanel({
     load()
     return () => controller.abort()
   }, [apiKey, mode, page, type?.id, version])
+
+  useEffect(() => {
+    if (!apiKey?.trim() || !referenceColumns.length) {
+      setReferenceLookups({})
+      return
+    }
+
+    let cancelled = false
+    const directoryIds = Array.from(
+      new Set(referenceColumns.map((column) => column.directoryTypeId)),
+    )
+
+    const cachedEntries = directoryIds
+      .map((directoryTypeId) => {
+        const cached = getCachedReferenceOptions(apiKey, directoryTypeId)
+        return cached
+          ? [directoryTypeId, buildReferenceLookup(cached)]
+          : null
+      })
+      .filter(Boolean)
+
+    if (cachedEntries.length) {
+      setReferenceLookups((prev) => mergeReferenceLookups(prev, cachedEntries))
+    }
+
+    const missingIds = directoryIds.filter(
+      (directoryTypeId) =>
+        !getCachedReferenceOptions(apiKey, directoryTypeId),
+    )
+
+    if (!missingIds.length) {
+      return
+    }
+
+    const load = async () => {
+      try {
+        const fetchedEntries = await Promise.all(
+          missingIds.map(async (directoryTypeId) => {
+            const options = await fetchReferenceOptions(apiKey, directoryTypeId)
+            return [directoryTypeId, buildReferenceLookup(options)]
+          }),
+        )
+        if (!cancelled) {
+          setReferenceLookups((prev) =>
+            mergeReferenceLookups(prev, fetchedEntries),
+          )
+        }
+      } catch {
+        if (!cancelled) {
+          // Ignore lookup errors and fallback to raw values
+        }
+      }
+    }
+
+    load()
+
+    return () => {
+      cancelled = true
+    }
+  }, [apiKey, referenceColumns])
 
   const refresh = () => setVersion((prev) => prev + 1)
 
@@ -293,7 +383,17 @@ export function RecordsPanel({
                     {columns.map((column) => {
                       const key = column.fieldName ?? column.FieldName
                       const value = row[key]
-                      return <td key={`${recordId ?? index}-${key}`}>{renderCell(value)}</td>
+                      const referenceInfo = key
+                        ? referenceColumnsMap.get(key)
+                        : null
+                      const formattedValue = referenceInfo
+                        ? formatReferenceValue(value, referenceInfo, referenceLookups)
+                        : null
+                      return (
+                        <td key={`${recordId ?? index}-${key}`}>
+                          {formattedValue ?? renderCell(value)}
+                        </td>
+                      )
                     })}
                     <td>
                       {mode === 'deleted' && recordId && (
@@ -356,6 +456,61 @@ const normalizePagination = (pagination) => ({
   hasPrevious: pagination.hasPrevious ?? pagination.HasPrevious ?? false,
   hasNext: pagination.hasNext ?? pagination.HasNext ?? false,
 })
+
+const mergeReferenceLookups = (current, entries) => {
+  const next = { ...current }
+  entries.forEach(([directoryTypeId, lookup]) => {
+    next[directoryTypeId] = lookup
+  })
+  return next
+}
+
+const buildReferenceLookup = (options = []) =>
+  options.reduce((acc, option) => {
+    const key = normalizeReferenceLookupKey(option?.id ?? option?.Id)
+    if (key) {
+      acc[key] = option?.label ?? option?.Label ?? ''
+    }
+    return acc
+  }, {})
+
+const normalizeReferenceLookupKey = (value) => {
+  if (value === null || value === undefined) return ''
+  if (typeof value === 'object') {
+    if ('id' in value && value.id !== undefined) {
+      return String(value.id).toLowerCase()
+    }
+    if ('Id' in value && value.Id !== undefined) {
+      return String(value.Id).toLowerCase()
+    }
+  }
+  return String(value).toLowerCase()
+}
+
+const formatReferenceValue = (value, referenceInfo, lookups) => {
+  const lookup = lookups[referenceInfo.directoryTypeId]
+  if (!lookup) {
+    return null
+  }
+
+  const resolveLabel = (entry) => {
+    const mapped = lookup[normalizeReferenceLookupKey(entry)]
+    if (typeof mapped === 'string' && mapped.trim() === '') {
+      return null
+    }
+    return mapped ?? null
+  }
+
+  if (Array.isArray(value)) {
+    const labels = value
+      .map((item) => resolveLabel(item))
+      .filter(Boolean)
+    return labels.length ? labels.join(', ') : null
+  }
+
+  const label = resolveLabel(value)
+  return label ?? null
+}
 
 const extractFileName = (disposition) => {
   if (!disposition) return null

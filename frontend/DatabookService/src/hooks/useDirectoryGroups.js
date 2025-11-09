@@ -53,5 +53,40 @@ export function useDirectoryGroups(apiKey) {
     [apiKey, refresh],
   )
 
-  return { groups, loading, error, refresh, createGroup }
+  const updateGroup = useCallback(
+    async (id, name) => {
+      if (!apiKey?.trim()) {
+        throw new Error('API key is missing')
+      }
+      if (!id) {
+        throw new Error('Group id is missing')
+      }
+      await apiRequest(`${GROUPS_ENDPOINT}/${id}`, {
+        method: 'PUT',
+        apiKey,
+        body: { name },
+      })
+      refresh()
+    },
+    [apiKey, refresh],
+  )
+
+  const deleteGroup = useCallback(
+    async (id) => {
+      if (!apiKey?.trim()) {
+        throw new Error('API key is missing')
+      }
+      if (!id) {
+        throw new Error('Group id is missing')
+      }
+      await apiRequest(`${GROUPS_ENDPOINT}/${id}`, {
+        method: 'DELETE',
+        apiKey,
+      })
+      refresh()
+    },
+    [apiKey, refresh],
+  )
+
+  return { groups, loading, error, refresh, createGroup, updateGroup, deleteGroup }
 }

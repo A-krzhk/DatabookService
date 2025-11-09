@@ -40,6 +40,8 @@ function App() {
     error: groupsError,
     refresh: refreshGroups,
     createGroup,
+    updateGroup,
+    deleteGroup,
   } = useDirectoryGroups(apiKey)
   const [groupModalOpen, setGroupModalOpen] = useState(false)
   const [groupModalLoading, setGroupModalLoading] = useState(false)
@@ -127,7 +129,7 @@ function App() {
     setView({ name: VIEW.RECORDS })
   }
 
-  const handleGroupModalSubmit = async (name) => {
+  const handleGroupCreate = async (name) => {
     const trimmed = name.trim()
     if (!trimmed) {
       setGroupModalError('Введите название группы')
@@ -140,6 +142,43 @@ function App() {
       await refreshGroups()
       await refetch()
       setGroupModalOpen(false)
+    } catch (err) {
+      setGroupModalError(err.message)
+    } finally {
+      setGroupModalLoading(false)
+    }
+  }
+
+  const handleGroupRename = async (groupId, nextName) => {
+    const trimmed = (nextName ?? '').trim()
+    if (!trimmed) {
+      setGroupModalError('Group name cannot be empty')
+      return
+    }
+    try {
+      setGroupModalLoading(true)
+      setGroupModalError('')
+      await updateGroup(groupId, trimmed)
+      await refreshGroups()
+      await refetch()
+    } catch (err) {
+      setGroupModalError(err.message)
+    } finally {
+      setGroupModalLoading(false)
+    }
+  }
+
+  const handleGroupDelete = async (groupId) => {
+    if (!groupId) {
+      setGroupModalError('Group id is missing')
+      return
+    }
+    try {
+      setGroupModalLoading(true)
+      setGroupModalError('')
+      await deleteGroup(groupId)
+      await refreshGroups()
+      await refetch()
     } catch (err) {
       setGroupModalError(err.message)
     } finally {
@@ -308,11 +347,14 @@ function App() {
         open={groupModalOpen}
         loading={groupModalLoading}
         error={groupModalError}
+        groups={groups}
         onClose={() => {
           setGroupModalOpen(false)
           setGroupModalError('')
         }}
-        onSubmit={handleGroupModalSubmit}
+        onCreate={handleGroupCreate}
+        onRename={handleGroupRename}
+        onDelete={handleGroupDelete}
       />
     </div>
   )
@@ -336,3 +378,4 @@ function ErrorState({ message }) {
 }
 
 export default App
+
